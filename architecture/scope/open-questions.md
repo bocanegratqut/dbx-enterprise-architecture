@@ -14,6 +14,14 @@ response.
 | # | Question | Adopted interpretation | Expected response | Raised in |
 | - | -------- | ---------------------- | ----------------- | --------- |
 | 5 | Which source-of-record per type applies once feeds exist? | The `source_of_record` values in the pack (the CMDB, the HR system, the project portfolio tool, the information asset register, the data platform's metadata catalogue, a higher-education reference model, the EA repository itself) as read from the institution's metamodel document | The IT division's enterprise architecture team confirms per type | Initiative 1, for plateau `PLAT3` |
+| 12 | Are the two state vocabularies right? | Current: `proposed`, `planned`, `in_implementation`, `live`, `retired`, `non_existent`. Target: `undecided`, `keep`, `new`, `change`, `decommission`, `merge`. Fixed in the engine, on elements and relationships alike | Yes / No, or the words to change | Initiative 4 |
+
+### 4 — Application
+
+| # | Question | Adopted interpretation | Expected response | Raised in |
+| - | -------- | ---------------------- | ----------------- | --------- |
+| 13 | Who may merge a branch into `main`? | Every user in the PoC (roles documented, not enforced); the merger's name and the time are recorded; a second-person approval comes with enforced roles at plateau `PLAT4` | Yes / No | Initiative 4 |
+| 14 | Which sources must Propose accept first? | Pasted text, Markdown, plain-text and CSV uploads, and links fetched over HTTP; PDF, Word and wiki connectors later | Yes / No, or the list | Initiative 5 |
 
 ## Resolved
 

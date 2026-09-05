@@ -16,3 +16,5 @@ alternative?".
 | [0003](./0003-metamodel-as-data.md) | The metamodel is a data pack, and typed tables are a generated projection | Accepted 2026-09-05 | `ACMP1`, `DOBJ1` |
 | [0004](./0004-agent-grounding.md) | The agent only drafts, only uses tools, and every identifier it cites is checked | Accepted 2026-09-05 | `ACMP5` |
 | [0005](./0005-generated-views.md) | Generated views, not a diagram editor | Accepted 2026-09-05 | `ACMP8`, `ASVC6`, `P8` |
+| [0006](./0006-branches-as-overlays.md) | Branches as overlays on the same schema, merged once with base versions | Proposed 2026-09-05 | `ACMP2`, `ACMP3`, `DOBJ2.5`, `DOBJ2.6` |
+| [0007](./0007-current-and-target-state.md) | Current and target state as core fields, analysed by work package | Proposed 2026-09-05 | `DOBJ2.1`, `DOBJ2.2`, `ASVC8` |

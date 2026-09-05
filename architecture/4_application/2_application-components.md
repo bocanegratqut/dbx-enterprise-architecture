@@ -28,6 +28,8 @@ imports only from layers to its left. SQL lives in `backend/` only
 | `ACMP6` | **Web application** — Dash pages Home, Browse, Element, Metamodel, Impact, Import, Ask on a Mantine shell with AG Grid tables and Cytoscape graphs and Mermaid views rendered in the browser from a bundled library; mock persona locally, forwarded identity headers on Databricks Apps; one graph panel (`src/ea/ui/graph.py`) with grouping, compound-aware layouts and pack-driven colours; the Notation tab; the drag-and-arrange script for generated views (`assets/ea-views.js`) | `src/ea/ui/` (`app.py`, `layout.py`, `context.py`, `components.py`, `pages/`), `app.py`, `app.yaml`, `assets/` | `ASVC1`–`ASVC5` | Running |
 | `ACMP7` | **Command line** — `ea` with init, load-pack, export-pack, import, validate, stats, find, get, neighbours, trace, impact, sql, summary | `src/ea/cli.py` | `ASVC1`–`ASVC4` | Running |
 | `ACMP8` | **View generator** — builds a view (focus, elements, relationships) from a query or a set of identifiers and renders it: Mermaid in the archreator notation from the pack's `notation`, draw.io with ArchiMate stencils and the element identifier on every shape, at grid positions or at the positions the browser reports | `src/ea/views/model.py`, `src/ea/views/mermaid.py`, `src/ea/views/drawio.py`; the answer composer `src/ea/agent/document.py` | `ASVC6`, `ASVC5` | Running |
+| `ACMP9` | **Branch overlay and merge** — the request-scoped current branch, the overlay reads and writes of the store, the diff with base versions and the merge with per-conflict resolution | `src/ea/backend/` (overlay), `src/ea/services/branches.py` | `ASVC7` | **Pending — initiative 4** |
+| `ACMP10` | **Proposal agent** — reads sources, resolves names against the model, returns a structured change set with pushback; a stub parses the Proposal Template's tables, a hosted provider reads free text | `src/ea/agent/proposal.py`, `templates/proposal-template.md` | `ASVC9` | **Pending — initiative 5** |
 
 ## Relationships
 
@@ -48,6 +50,11 @@ imports only from layers to its left. SQL lives in `backend/` only
 | `ACMP5` | ▭ «Application Component» Agent | `ACMP8` | ▭ «Application Component» View generator | uses | the answer document embeds views; `propose_view` tool |
 | `ACMP8` | ▭ «Application Component» View generator | `ACMP3` | ▭ «Application Component» Repository and graph services | uses | neighbourhood, impact, edges among a set |
 | `ACMP8` | ▭ «Application Component» View generator | `ACMP1` | ▭ «Application Component» Metamodel registry | uses | notation per type |
+| `ACMP9` | ▭ «Application Component» Branch overlay and merge | `ACMP2` | ▭ «Application Component» Graph store | uses | **Pending — initiative 4** |
+| `ACMP6` | ▭ «Application Component» Web application | `ACMP9` | ▭ «Application Component» Branch overlay and merge | uses | **Pending — initiative 4**: branch selector, Branches page |
+| `ACMP10` | ▭ «Application Component» Proposal agent | `ACMP3` | ▭ «Application Component» Repository and graph services | uses | **Pending — initiative 5** |
+| `ACMP10` | ▭ «Application Component» Proposal agent | `ACMP9` | ▭ «Application Component» Branch overlay and merge | uses | **Pending — initiative 5**: writes to a branch |
+| `ACMP6` | ▭ «Application Component» Web application | `ACMP10` | ▭ «Application Component» Proposal agent | uses | **Pending — initiative 5**: Propose page |
 
 ## How to add
 
