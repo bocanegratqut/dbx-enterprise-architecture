@@ -1,0 +1,4 @@
+element_id,url,label
+IA-STUDENT-ENROL,https://example.edu/register/student-enrolment,Information Asset Register entry
+PAC-CMS,https://example.edu/cmdb/cms,CMDB record
+DP-CURR-HEALTH,https://example.edu/catalogue/curriculum-health,Data catalogue entry

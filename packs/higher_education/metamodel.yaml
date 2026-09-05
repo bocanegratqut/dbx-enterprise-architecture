@@ -1,0 +1,797 @@
+# Higher Education EA Metamodel: a university's TOGAF-based enterprise architecture
+# metamodel, anonymised, expressed as a metamodel pack for the EA repository engine.
+# It is the first worked pack; the institution it came from is not named.
+#
+# Everything here is data. Nothing in the engine knows the names below; a
+# different framework (ArchiMate, TOGAF content metamodel, a home-grown one)
+# is another pack with the same shape. The schema of a pack is documented in
+# packs/README.md.
+#
+# Provenance of a type follows the source metamodel's own tags: TOGAF (from the
+# TOGAF content metamodel), CORE_EA (from the previous tool's core metamodel),
+# LOCAL (the institution's own additions and sub-types).
+
+pack:
+  id: higher_education
+  name: Higher Education EA Metamodel
+  version: "2026-08-11"
+  description: >-
+    The object types and relationships that appear in a university's enterprise
+    architecture models, giving a consistent shared language for architectural
+    work. Active types are those in use; inactive types are kept so that content
+    exported from a previous repository can be imported and flagged rather than
+    dropped.
+  source: A university's TOGAF-based metamodel document (held privately), anonymised
+  provenance_values: [TOGAF, CORE_EA, LOCAL]
+
+# Domains group the element types the way the source metamodel's diagrams do.
+domains:
+  - id: information
+    name: Information
+    description: Business information, its logical categorisation and its physical encapsulation; owned by the Information Domain Architect.
+    notation: {colour: blue, hex: '#4dabf7', layer: application, glyph: '▤', stereotype: Data Object, archimate: DataObject, shape: rect}
+  - id: process
+    name: Process
+    description: Actors, roles, processes and value streams; owned by the Process Domain Architect.
+    notation: {colour: pink, hex: '#f783ac', layer: business, glyph: '⚙', stereotype: Business Process, archimate: BusinessProcess, shape: round}
+  - id: integration
+    name: Integration
+    description: Applications, technology, integrations and interfaces; owned by the Technology Domain Architect.
+    notation: {colour: yellow, hex: '#ffd43b', layer: application, glyph: '▭', stereotype: Application Component, archimate: ApplicationComponent, shape: rect}
+  - id: enterprise
+    name: Objects of enterprise concern
+    description: Strategy, portfolio and organisation objects that do not fall into a single architect's domain but are of global concern.
+    notation: {colour: gray, hex: '#adb5bd', layer: strategy, glyph: '✦', stereotype: Capability, archimate: Capability, shape: rect}
+
+# Attributes every element may carry in addition to the core fields
+# (name, description, status, lifecycle_status, key, source_system, links).
+# They come from the export of the current repository.
+common_attributes:
+  - {name: alias, label: Alias, type: string}
+  - {name: architectural_status, label: Architectural Status, type: string}
+  - {name: approval_status, label: Approval Status, type: string, enum: [Approved, Not Approved]}
+  - {name: version_flag, label: Version Flag, type: string}
+  - {name: source, label: Source, type: string, description: Where the element was sourced from, e.g. a reference data model, the CMDB product catalogue.}
+  - {name: owner, label: Owner, type: string}
+  - {name: categories, label: Categories, type: string}
+  - {name: category_general, label: Category (General), type: string}
+  - {name: standards_class, label: Standards Class, type: string}
+  - {name: standard_creation_date, label: Standard Creation Date, type: date}
+  - {name: last_standard_review_date, label: Last Standard Review Date, type: date}
+  - {name: next_standard_review_date, label: Next Standard Review Date, type: date}
+  - {name: standard_retire_date, label: Standard Retire Date, type: date}
+
+element_types:
+  # ---------------------------------------------------------------- active
+  - id: actor
+    name: Actor
+    plural: Actors
+    domain: process
+    notation: {layer: business, glyph: '◍', stereotype: Business Actor, archimate: BusinessActor, shape: rect}
+    provenance: TOGAF
+    prefix: ACT
+    description: A person, organization, or system that has a role that initiates or interacts with activities. A key component of the Process Domain metamodel.
+    examples: [Faculty Member, Solution Architect, Non-Award Student]
+    source_of_record: Not yet loaded; future source is the process modelling tool selected by the Process Architecture CoE
+    type_owner: Process Domain Architect
+    instance_owner: Portfolio Domain Architects
+
+  - id: benefit
+    name: Benefit
+    plural: Benefits
+    domain: enterprise
+    notation: {layer: motivation, glyph: '◎', stereotype: Outcome, archimate: Outcome, shape: round}
+    provenance: CORE_EA
+    prefix: BEN
+    description: A measurable advantage or positive outcome that an organization expects to achieve through the realisation of an architectural component or a business initiative. Benefits are typically aligned with strategic goals and justify investment in architectural change.
+    examples: [Improved Student Retention, Enhanced Operational Efficiency, Increased Research Output]
+    source_of_record: The project portfolio tool
+    type_owner: Repository administrator
+    instance_owner: Portfolio Domain Architects
+
+  - id: business_definition
+    name: Business Definition
+    plural: Business Definitions
+    supertype: business_information
+    domain: information
+    notation: {layer: business, glyph: '▤', stereotype: Business Object, archimate: BusinessObject, shape: rect}
+    provenance: LOCAL
+    prefix: DEF
+    description: A sub-type of Business Information. An entry in a business glossary; the definition of a business term.
+    examples: [Enrolled Student, Sessional Academic, Award Course]
+    source_of_record: Not yet loaded; the EA repository is planned to become the primary source, with definitions entered by business term owners
+    type_owner: Information Domain Architect
+    instance_owner: Portfolio Domain Architects
+    attributes:
+      - {name: definition, label: Definition, type: text}
+
+  - id: business_information
+    name: Business Information
+    plural: Business Information
+    domain: information
+    notation: {layer: business, glyph: '▤', stereotype: Business Object, archimate: BusinessObject, shape: rect}
+    provenance: LOCAL
+    prefix: BI
+    description: A concept and its semantics used within the business. Has two sub-types, Information Asset and Business Definition.
+    source_of_record: See the sub-types
+    type_owner: Information Domain Architect
+    instance_owner: Information Domain Architect
+
+  - id: business_service
+    name: Business Service
+    plural: Business Services
+    domain: enterprise
+    notation: {layer: business, glyph: '⚙', stereotype: Business Service, archimate: BusinessService, shape: stadium}
+    provenance: TOGAF
+    prefix: BSVC
+    description: An element of behavior that provides specific functionality in response to requests from actors or other services. A service delivers or supports business capabilities, has an explicitly defined interface, and is explicitly governed.
+    examples: [Student Enrollment Service, Course Management Service, Research Grant Management Service]
+    source_of_record: Loaded ad hoc as required for individual modelling activities
+    type_owner: Repository administrator
+    instance_owner: Portfolio Domain Architects
+
+  - id: capability
+    name: Capability
+    plural: Capabilities
+    domain: enterprise
+    notation: {layer: strategy, glyph: '✦', stereotype: Capability, archimate: Capability, shape: rect}
+    provenance: TOGAF
+    prefix: CAP
+    description: A business-focused outcome that is delivered by the completion of one or more work packages.
+    examples: [Curriculum Development, Student Enrollment Management, Research Administration]
+    source_of_record: A higher-education reference model (business)
+    type_owner: Repository administrator
+    instance_owner: Repository administrator
+    attributes:
+      - {name: level, label: Level, type: integer}
+
+  - id: data_entity
+    name: Data Entity
+    plural: Data Entities
+    domain: information
+    notation: {layer: application, glyph: '▤', stereotype: Data Object, archimate: DataObject, shape: rect}
+    provenance: TOGAF
+    prefix: DE
+    description: A physical encapsulation of data. A table or other data structure that can be processed by an information system or used in the course of business operations.
+    examples: [HR_Employee, Facilities_Building, SRS_Course_Offering]
+    source_of_record: The data platform's metadata catalogue; Unity Catalog is the target catalogue
+    type_owner: Information Domain Architect
+    instance_owner: Information Domain Architect
+    attributes:
+      - {name: available_in_analytics_platform, label: Available in analytics platform, type: boolean}
+      - {name: includes_pii, label: Includes PII, type: boolean}
+
+  - id: data_product
+    name: Data Product
+    plural: Data Products
+    supertype: product
+    domain: information
+    notation: {layer: application, glyph: '▤', stereotype: Product, archimate: Product, shape: rect}
+    provenance: LOCAL
+    prefix: DP
+    description: Sub-type of Product. A data output that is generated by operational or analytical business processes.
+    examples: [A data quality dashboard, An operational analytics data export]
+    source_of_record: The data and analytics unit's data product register (planned load)
+    type_owner: Information Domain Architect
+    instance_owner: Information Domain Architect
+    attributes:
+      - {name: data_product_type, label: Data Product Type, type: string}
+      - {name: source, label: Source, type: string}
+      - {name: owner, label: Owner, type: string}
+
+  - id: driver
+    name: Driver
+    plural: Drivers
+    domain: enterprise
+    notation: {layer: motivation, glyph: '✳', stereotype: Driver, archimate: Driver, shape: hex}
+    provenance: TOGAF
+    prefix: DRV
+    description: An external or internal condition that motivates the organization to define its goals.
+    examples: [Increasing Student Enrollment, Regulatory Compliance, Technological Advancements]
+    source_of_record: Loaded ad hoc as required for individual modelling activities
+    type_owner: Repository administrator
+    instance_owner: Portfolio Domain Architects
+
+  - id: goal
+    name: Goal
+    plural: Goals
+    domain: enterprise
+    notation: {layer: motivation, glyph: '◎', stereotype: Goal, archimate: Goal, shape: round}
+    provenance: TOGAF
+    prefix: G
+    description: A high-level statement of intent or direction for an organization.
+    examples: [Increase Student Enrollment, Enhance Research Output, Improve Graduation Rates]
+    source_of_record: The university's digital strategy
+    type_owner: Repository administrator
+    instance_owner: Repository administrator
+
+  - id: information_asset
+    name: Information Asset
+    plural: Information Assets
+    supertype: business_information
+    domain: information
+    notation: {layer: business, glyph: '▤', stereotype: Business Object, archimate: BusinessObject, shape: rect}
+    provenance: LOCAL
+    prefix: IA
+    description: Sub-type of Business Information. An identifiable collection of information or data stored in any manner and recognised as having value for the purpose of enabling the University to perform its business functions. Categorised by content and business use rather than by the systems that hold it.
+    examples: [Student Details, Research Data, Course Content]
+    source_of_record: The university's information asset register
+    type_owner: Information Domain Architect
+    instance_owner: Information Domain Architect
+    attributes:
+      - {name: information_category_description, label: Information Category Description, type: text}
+      - {name: confidentiality_risk_rating, label: Confidentiality Risk Rating, type: string, sensitivity: restricted}
+      - {name: integrity_risk_rating, label: Integrity Risk Rating, type: string, sensitivity: restricted}
+      - {name: availability_risk_rating, label: Availability Risk Rating, type: string, sensitivity: restricted}
+
+  - id: integration
+    name: Integration
+    plural: Integrations
+    domain: integration
+    notation: {layer: application, glyph: '⇄', stereotype: Flow, archimate: ApplicationInteraction, shape: round}
+    provenance: CORE_EA
+    prefix: INT
+    description: A component of application architecture that moves data between application components or data stores, possibly applying logical transformations. Integrations have a source, a target, inputs and outputs, and may be composed of sub-components.
+    examples: [Admissions-to-SRS connector, HR-to-data-platform ingestion pipeline]
+    source_of_record: CMDB Product Catalogue (sub-type Integration)
+    type_owner: Technology Domain Architect
+    instance_owner: Portfolio Domain Architects
+
+  - id: interface
+    name: Interface
+    plural: Interfaces
+    domain: integration
+    notation: {layer: application, glyph: '○', stereotype: Application Interface, archimate: ApplicationInterface, shape: rect}
+    provenance: CORE_EA
+    prefix: IF
+    description: Also known as Conceptual Data Interface. The conceptual interface between two technology components via which they exchange data; a container for the integration components that realise the interface between systems.
+    examples: [The MDM-to-data-platform interface, realised by a change listener, a message queue, a producer and a retry handler]
+    source_of_record: The EA repository; seeded in Q3 2026 and thereafter fed by ADL/ALM documentation activities
+    type_owner: Information Domain Architect
+    instance_owner: Portfolio Domain Architects
+
+  - id: location
+    name: Location
+    plural: Locations
+    domain: enterprise
+    notation: {layer: other, glyph: '⌖', stereotype: Location, archimate: Location, shape: rect}
+    provenance: TOGAF
+    prefix: LOC
+    description: A place where business activity takes place; can be hierarchically decomposed.
+    examples: [Campus Library, Online Learning Platform, Administrative Offices]
+    source_of_record: Loaded ad hoc as required for individual modelling activities
+    type_owner: Repository administrator
+    instance_owner: Portfolio Domain Architects
+
+  - id: logical_application_component
+    name: Logical Application Component
+    plural: Logical Application Components
+    domain: integration
+    notation: {layer: application, glyph: '▭', stereotype: Application Component, archimate: ApplicationComponent, shape: rect}
+    provenance: TOGAF
+    prefix: LAC
+    description: An encapsulation of application functionality that is independent of a particular implementation.
+    examples: [Student Information System, Learning Management System, Library Management System]
+    source_of_record: A higher-education reference model (application)
+    type_owner: Technology Domain Architect
+    instance_owner: Technology Domain Architect
+
+  - id: logical_data_component
+    name: Logical Data Component
+    plural: Logical Data Components
+    domain: information
+    notation: {layer: application, glyph: '▤', stereotype: Data Object, archimate: DataObject, shape: cyl}
+    provenance: TOGAF
+    prefix: LDC
+    description: A boundary zone that encapsulates related data entities to form a logical location to be held. A logical categorisation of physical data entities, levelled (level 1 subject area, level 2 topic).
+    examples: [Staff, Place, Course]
+    source_of_record: The university's business information model, aligned with a higher-education reference data model
+    type_owner: Information Domain Architect
+    instance_owner: Information Domain Architect
+    attributes:
+      - {name: level, label: Level of Logical Data Component, type: integer}
+
+  - id: logical_technology_component
+    name: Logical Technology Component
+    plural: Logical Technology Components
+    domain: integration
+    notation: {layer: technology, glyph: '⚙', stereotype: Technology Service, archimate: TechnologyService, shape: stadium}
+    provenance: TOGAF
+    prefix: LTC
+    description: An encapsulation of technology infrastructure that is independent of a particular product; a class of technology product.
+    examples: [Research Collaboration Platform, Analytics Platform, Integration Platform]
+    source_of_record: A higher-education reference model (technology)
+    type_owner: Information Domain Architect
+    instance_owner: Technology Domain Architect
+
+  - id: measure
+    name: Measure
+    plural: Measures
+    domain: information
+    notation: {layer: motivation, glyph: '◎', stereotype: Value, archimate: Value, shape: stadium}
+    provenance: TOGAF
+    prefix: MSR
+    description: An indicator or factor that can be tracked, usually on an ongoing basis, to determine success or alignment with objectives and goals.
+    examples: [Data Completeness Rate, Data Validity Rate, Service Request Completion Time]
+    source_of_record: Not yet loaded; the EA repository is planned to be the primary source
+    type_owner: Information Domain Architect
+    instance_owner: Information Domain Architect
+    attributes:
+      - {name: definition, label: Definition, type: text}
+      - {name: type_of_measure, label: Type of Measure, type: string}
+
+  - id: organization_unit
+    name: Organization Unit
+    plural: Organization Units
+    domain: enterprise
+    notation: {layer: business, glyph: '◍', stereotype: Business Actor, archimate: BusinessActor, shape: rect}
+    provenance: TOGAF
+    prefix: ORG
+    description: A self-contained unit of resources with line management responsibility, goals, objectives, and measures.
+    examples: [Admissions Office, Academic Department, Library Services]
+    source_of_record: Loaded ad hoc as required for individual modelling activities (HR organisational structure)
+    type_owner: Repository administrator
+    instance_owner: Portfolio Domain Architects
+
+  - id: physical_application_component
+    name: Physical Application Component
+    plural: Physical Application Components
+    domain: integration
+    notation: {layer: application, glyph: '▭', stereotype: Application Component, archimate: ApplicationComponent, shape: rect}
+    provenance: TOGAF
+    prefix: PAC
+    description: An application, application module, application service, or other deployable component of functionality.
+    examples: [Student Records System, HR System, Facilities System]
+    source_of_record: CMDB Product Catalogue (sub-types Application, Portlet, Storage)
+    type_owner: Technology Domain Architect
+    instance_owner: Portfolio Domain Architects
+    attributes:
+      - {name: cmdb_sub_type, label: CMDB sub-type, type: string, enum: [Application, Portlet, Storage]}
+
+  - id: physical_technology_component
+    name: Physical Technology Component
+    plural: Physical Technology Components
+    domain: integration
+    notation: {layer: technology, glyph: '⬒', stereotype: Node, archimate: Node, shape: rect}
+    provenance: TOGAF
+    prefix: PTC
+    description: A specific technology infrastructure product or technology infrastructure product instance.
+    examples: [Low-code platform, Integration platform, Virtual desktop service]
+    source_of_record: CMDB Product Catalogue (sub-types Database platform, Infrastructure, Network, Network Infrastructure, Platform, Storage Array, Tool)
+    type_owner: Technology Domain Architect
+    instance_owner: Portfolio Domain Architects
+    attributes:
+      - {name: cmdb_sub_type, label: CMDB sub-type, type: string, enum: [Database platform, Infrastructure, Network, Network Infrastructure, Platform, Storage Array, Tool]}
+
+  - id: process
+    name: Process
+    plural: Processes
+    domain: process
+    notation: {layer: business, glyph: '⚙', stereotype: Business Process, archimate: BusinessProcess, shape: round}
+    provenance: TOGAF
+    prefix: PROC
+    description: A sequence of activities that together achieve a specified outcome; can be decomposed into sub-processes and can show the operation of a function or service at the next level of detail.
+    examples: [Student Enrollment Process, Course Delivery Process, Grant Application Process]
+    source_of_record: Not yet loaded; future source is the process modelling tool selected by the Process Architecture CoE
+    type_owner: Process Domain Architect
+    instance_owner: Portfolio Domain Architects
+
+  - id: product
+    name: Product
+    plural: Products
+    domain: enterprise
+    notation: {layer: business, glyph: '▤', stereotype: Product, archimate: Product, shape: rect}
+    provenance: TOGAF
+    prefix: PROD
+    description: Output generated by the business; the business product of the execution of a process. Has the sub-type Data Product.
+    source_of_record: See the sub-type
+    type_owner: Repository administrator
+    instance_owner: Portfolio Domain Architects
+
+  - id: position
+    name: Position
+    plural: Positions
+    supertype: role
+    domain: enterprise
+    notation: {layer: business, glyph: '◍', stereotype: Business Role, archimate: BusinessRole, shape: rect}
+    provenance: LOCAL
+    prefix: POS
+    description: A job title at the university; a named position within an Organization Unit. Sub-type of Role.
+    examples: [Principal Consultant Information Architect, Manager Data Governance, Admissions Assessment Specialist]
+    source_of_record: Loaded ad hoc as required for individual modelling activities (HR)
+    type_owner: Repository administrator
+    instance_owner: Portfolio Domain Architects
+
+  - id: role
+    name: Role
+    plural: Roles
+    domain: process
+    notation: {layer: business, glyph: '◍', stereotype: Business Role, archimate: BusinessRole, shape: rect}
+    provenance: TOGAF
+    prefix: ROLE
+    description: The usual or expected function of an actor, or the part somebody or something plays in a particular action or event. Has the sub-type Position.
+    examples: [Course Instructor, Admissions Officer, IT Support Specialist]
+    source_of_record: Not yet loaded; future source is the process modelling tool selected by the Process Architecture CoE
+    type_owner: Process Domain Architect
+    instance_owner: Portfolio Domain Architects
+
+  - id: value_stream
+    name: Value Stream
+    plural: Value Streams
+    domain: process
+    notation: {layer: strategy, glyph: '⇉', stereotype: Value Stream, archimate: ValueStream, shape: subroutine}
+    provenance: TOGAF
+    prefix: VS
+    description: A representation of an end-to-end collection of value-adding activities that create an overall result for a customer, stakeholder, or end-user.
+    examples: [Student Enrollment, Course Development and Delivery, Research Grant Management]
+    source_of_record: Loaded ad hoc as required for individual modelling activities
+    type_owner: Process Domain Architect
+    instance_owner: Portfolio Domain Architects
+
+  - id: work_package
+    name: Work Package
+    plural: Work Packages
+    domain: enterprise
+    notation: {layer: implementation, glyph: '▣', stereotype: Work Package, archimate: WorkPackage, shape: round}
+    provenance: TOGAF
+    prefix: WP
+    description: A set of actions identified to achieve one or more objectives for the business; part of a project, a complete project, or a program.
+    examples: [Curriculum Development, Campus Management System Upgrade, Faculty Training Program]
+    source_of_record: The project portfolio tool
+    type_owner: Repository administrator
+    instance_owner: Portfolio Domain Architects
+
+  # --------------------------------------------------------------- inactive
+  # Kept so that exported content can be imported and flagged. Each carries
+  # the reason the source metamodel deactivated it.
+  - id: application_service
+    name: Application Service
+    plural: Application Services
+    domain: integration
+    notation: {layer: application, glyph: '⚙', stereotype: Application Service, archimate: ApplicationService, shape: stadium}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Not currently tracked by any architecture community; no current use case.
+    description: The automated elements of a business service; may deliver or support part or all of one or more business services.
+  - id: architecture_building_block
+    name: Architecture Building Block
+    plural: Architecture Building Blocks
+    domain: enterprise
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Redundant with the logical application, data and technology components for current use cases.
+    description: TOGAF ABB; captures architecture requirements and directs the development of solution building blocks.
+  - id: assumption
+    name: Assumption
+    plural: Assumptions
+    domain: enterprise
+    notation: {layer: motivation, glyph: '⚖', stereotype: Assessment, archimate: Assessment, shape: hex}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Not currently tracked by any architecture community; no current use case.
+    description: A statement of probable fact that has not been fully validated at this stage due to external constraints.
+  - id: attribute
+    name: Attribute
+    plural: Attributes
+    domain: information
+    notation: {layer: application, glyph: '▤', stereotype: Data Object, archimate: DataObject, shape: rect}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Modelling data at this granularity is planned for a future horizon but the EA tool is not the place for it; a data governance tool or the data platform's own catalogue should hold it. Exported attributes are imported for reference.
+    description: A property or characteristic of an architectural element, most often a column or field of a data entity.
+    attributes:
+      - {name: data_type, label: Data Type, type: string}
+  - id: constraint
+    name: Constraint
+    plural: Constraints
+    domain: enterprise
+    notation: {layer: motivation, glyph: '▣', stereotype: Constraint, archimate: Constraint, shape: rect}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Not currently tracked by any architecture community; no current use case.
+    description: An external factor that prevents an organization from pursuing particular approaches to meet its goals.
+  - id: control
+    name: Control
+    plural: Controls
+    domain: process
+    notation: {layer: motivation, glyph: '▣', stereotype: Requirement, archimate: Requirement, shape: rect}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Not currently tracked by any architecture community; no current use case.
+    description: A decision-making step with accompanying decision logic used to determine the execution approach for a process or to ensure compliance with governance criteria.
+  - id: contract
+    name: Contract
+    plural: Contracts
+    domain: enterprise
+    notation: {layer: business, glyph: '▤', stereotype: Contract, archimate: Contract, shape: rect}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: No current architectural use case.
+    description: An agreement between a service consumer and a service provider that establishes functional and non-functional parameters for interaction.
+  - id: course_of_action
+    name: Course of Action
+    plural: Courses of Action
+    domain: enterprise
+    notation: {layer: strategy, glyph: '✦', stereotype: Course of Action, archimate: CourseOfAction, shape: round}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Redundant with Work Package for current use cases.
+    description: Direction and focus provided by strategic goals and objectives, often to deliver the value proposition characterized in the business model.
+  - id: end_event
+    name: End Event
+    plural: End Events
+    domain: process
+    notation: {layer: business, glyph: '⚡', stereotype: Business Event, archimate: BusinessEvent, shape: asym}
+    provenance: CORE_EA
+    active: false
+    deactivation_reason: Process modelling at this granularity belongs in a domain-specific process modelling tool.
+    description: BPMN end event; where a process ends.
+  - id: event
+    name: Event
+    plural: Events
+    domain: process
+    notation: {layer: business, glyph: '⚡', stereotype: Business Event, archimate: BusinessEvent, shape: asym}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Process modelling at this granularity belongs in a domain-specific process modelling tool.
+    description: An organizational state change that triggers processing; may originate inside or outside the organization.
+  - id: function
+    name: Function
+    plural: Functions
+    domain: enterprise
+    notation: {layer: business, glyph: '⚙', stereotype: Business Function, archimate: BusinessFunction, shape: round}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Redundant with Capability for current use cases.
+    description: Delivers business capabilities closely aligned to an organization but not necessarily explicitly governed by it; also called business function.
+  - id: gap
+    name: Gap
+    plural: Gaps
+    domain: enterprise
+    notation: {layer: implementation, glyph: '△', stereotype: Gap, archimate: Gap, shape: rect}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Not currently tracked by any architecture community; no current use case.
+    description: A statement of difference between two states, used in gap analysis between baseline and target architecture.
+  - id: gateway
+    name: Gateway
+    plural: Gateways
+    domain: process
+    provenance: CORE_EA
+    active: false
+    deactivation_reason: Process modelling at this granularity belongs in a domain-specific process modelling tool.
+    description: BPMN gateway; controls the divergence and convergence of sequence flows in a process.
+  - id: intermediate_event
+    name: Intermediate Event
+    plural: Intermediate Events
+    domain: process
+    notation: {layer: business, glyph: '⚡', stereotype: Business Event, archimate: BusinessEvent, shape: asym}
+    provenance: CORE_EA
+    active: false
+    deactivation_reason: Process modelling at this granularity belongs in a domain-specific process modelling tool.
+    description: BPMN intermediate event; an occurrence within a process that signifies a change in state or triggers further processing.
+  - id: lane
+    name: Lane
+    plural: Lanes
+    domain: process
+    provenance: CORE_EA
+    active: false
+    deactivation_reason: Process modelling at this granularity belongs in a domain-specific process modelling tool.
+    description: BPMN lane; a sub-partition within a process, sometimes within a pool, used to organise activities.
+  - id: message
+    name: Message
+    plural: Messages
+    domain: process
+    provenance: CORE_EA
+    active: false
+    deactivation_reason: Not currently tracked by any architecture community; no current use case.
+    description: BPMN message; the contents of a communication between two participants.
+  - id: objective
+    name: Objective
+    plural: Objectives
+    domain: enterprise
+    notation: {layer: motivation, glyph: '◎', stereotype: Outcome, archimate: Outcome, shape: round}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Redundant with Goal for current use cases.
+    description: A time-bounded milestone for an organization used to demonstrate progress towards a goal.
+  - id: painpoint
+    name: Painpoint
+    plural: Painpoints
+    domain: process
+    provenance: CORE_EA
+    active: false
+    deactivation_reason: Process modelling at this granularity belongs in a domain-specific process modelling tool.
+    description: Business process extension for BPMN.
+  - id: pool
+    name: Pool
+    plural: Pools
+    domain: process
+    provenance: CORE_EA
+    active: false
+    deactivation_reason: Process modelling at this granularity belongs in a domain-specific process modelling tool.
+    description: BPMN pool; the graphical representation of a participant in a collaboration, acting as a swimlane and container for activities.
+  - id: principle
+    name: Principle
+    plural: Principles
+    domain: enterprise
+    notation: {layer: motivation, glyph: '▣', stereotype: Principle, archimate: Principle, shape: rect}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: No current architectural use case.
+    description: A qualitative statement of intent that should be met by the architecture, with a supporting rationale and a measure of importance.
+  - id: professional_staff
+    name: Professional Staff
+    plural: Professional Staff
+    domain: process
+    provenance: LOCAL
+    active: false
+    deactivation_reason: Not properly a metadata object type; better represented as an instance of Role.
+    description: The university's professional and academic staff members.
+  - id: external_stakeholder
+    name: External Stakeholder
+    plural: External Stakeholders
+    domain: process
+    provenance: LOCAL
+    active: false
+    deactivation_reason: Not properly a metadata object type; better represented as an instance of Role.
+    description: The university's external stakeholders.
+  - id: student
+    name: Student
+    plural: Students
+    domain: process
+    provenance: LOCAL
+    active: false
+    deactivation_reason: Not properly a metadata object type; better represented as an instance of Role.
+    description: A student of the university, future, current, domestic, international, undergraduate or postgraduate.
+  - id: requirement
+    name: Requirement
+    plural: Requirements
+    domain: enterprise
+    notation: {layer: motivation, glyph: '▣', stereotype: Requirement, archimate: Requirement, shape: rect}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: No current architectural use case.
+    description: A quantitative statement of business need that must be met by a particular architecture or work package.
+  - id: risk
+    name: Risk
+    plural: Risks
+    domain: enterprise
+    notation: {layer: motivation, glyph: '⚖', stereotype: Assessment, archimate: Assessment, shape: hex}
+    provenance: TOGAF
+    active: false
+    deactivation_reason: No current architectural use case.
+    description: A statement describing a possible hazard that may relate to an aspect of the architecture.
+  - id: sbb_application
+    name: SBB Application
+    plural: SBB Applications
+    domain: integration
+    notation: {layer: application, glyph: '▭', stereotype: Application Component, archimate: ApplicationComponent, shape: rect}
+    provenance: LOCAL
+    active: false
+    deactivation_reason: Redundant with the physical application, data and technology components for current use cases.
+    description: Solution building block for application elements, used only in the solution architecture logical view.
+  - id: sbb_business
+    name: SBB Business
+    plural: SBB Business
+    domain: enterprise
+    provenance: LOCAL
+    active: false
+    deactivation_reason: Redundant with the physical application, data and technology components for current use cases.
+    description: Solution building block for business elements, used only in the solution architecture logical view.
+  - id: sbb_data
+    name: SBB Data
+    plural: SBB Data
+    domain: information
+    notation: {layer: application, glyph: '▤', stereotype: Data Object, archimate: DataObject, shape: rect}
+    provenance: LOCAL
+    active: false
+    deactivation_reason: Redundant with the physical application, data and technology components for current use cases.
+    description: Solution building block for data elements, used only in the solution architecture logical view.
+  - id: sbb_technology
+    name: SBB Technology
+    plural: SBB Technology
+    domain: integration
+    notation: {layer: technology, glyph: '⬒', stereotype: Node, archimate: Node, shape: rect}
+    provenance: LOCAL
+    active: false
+    deactivation_reason: Redundant with the physical application, data and technology components for current use cases.
+    description: Solution building block for technology elements, used only in the solution architecture logical view.
+  - id: service_quality
+    name: Service Quality
+    plural: Service Qualities
+    domain: enterprise
+    provenance: TOGAF
+    active: false
+    deactivation_reason: No current architectural use case.
+    description: A preset configuration of non-functional attributes that may be assigned to a service or service contract.
+  - id: solution_building_block
+    name: Solution Building Block
+    plural: Solution Building Blocks
+    domain: enterprise
+    provenance: TOGAF
+    active: false
+    deactivation_reason: Redundant with the physical application, data and technology components for current use cases.
+    description: TOGAF SBB.
+  - id: start_event
+    name: Start Event
+    plural: Start Events
+    domain: process
+    notation: {layer: business, glyph: '⚡', stereotype: Business Event, archimate: BusinessEvent, shape: asym}
+    provenance: CORE_EA
+    active: false
+    deactivation_reason: Process modelling at this granularity belongs in a domain-specific process modelling tool.
+    description: BPMN start event; where a particular process starts.
+
+# Relationship types transcribed from the four domain diagrams of the source metamodel. `source`
+# and `target` name element types; `ANY` means any element. A relationship on a
+# supertype is allowed on its sub-types. `diagrams` says which domain
+# diagram(s) show the edge. Where the diagram reads passively ("Capability is
+# realised by Application") the edge is stored actively from the doing side.
+relationship_types:
+  # --- objects of enterprise concern
+  - {id: organization_unit__owns_and_governs__business_service, name: owns and governs, inverse: is owned and governed by, source: organization_unit, target: business_service, provenance: TOGAF, diagrams: [enterprise]}
+  - {id: position__owns__integration, name: owns, inverse: is owned by, source: position, target: integration, provenance: LOCAL, diagrams: [enterprise, integration]}
+  - {id: process__realises__capability, name: realises, inverse: is realised by, source: process, target: capability, provenance: CORE_EA, diagrams: [enterprise]}
+  - {id: capability__contains__capability, name: contains, inverse: is contained in, source: capability, target: capability, provenance: CORE_EA, diagrams: [enterprise, process]}
+  - {id: organization_unit__produces__product, name: produces, inverse: is produced by, source: organization_unit, target: product, provenance: TOGAF, diagrams: [enterprise, information]}
+  - {id: position__belongs_to__organization_unit, name: belongs to, inverse: has position, source: position, target: organization_unit, provenance: LOCAL, diagrams: [enterprise]}
+  - {id: position__owns__physical_application_component, name: owns, inverse: is owned by, source: position, target: physical_application_component, provenance: LOCAL, diagrams: [enterprise, integration]}
+  - {id: physical_application_component__realises__capability, name: realises, inverse: is realised by, source: physical_application_component, target: capability, provenance: CORE_EA, diagrams: [enterprise, integration], description: Capability is realised by Application.}
+  - {id: organization_unit__contains__organization_unit, name: contains, inverse: is contained in, source: organization_unit, target: organization_unit, provenance: CORE_EA, diagrams: [enterprise, information]}
+  - {id: organization_unit__owns__business_definition, name: owns, inverse: is owned by, source: organization_unit, target: business_definition, provenance: LOCAL, diagrams: [enterprise, information]}
+  - {id: information_asset__is_associated_with__organization_unit, name: is associated with, inverse: is associated with, source: information_asset, target: organization_unit, provenance: LOCAL, diagrams: [enterprise, information]}
+  - id: position__is_steward_of__information_asset
+    name: is Owner / Data Custodian / Data Steward / Data Administrator of
+    inverse: has Owner / Data Custodian / Data Steward / Data Administrator
+    source: position
+    target: information_asset
+    provenance: LOCAL
+    diagrams: [enterprise, information]
+    qualifiers: [Owner, Data Custodian, Data Steward, Data Administrator]
+    description: One relationship type with a role qualifier; an asset may have several positions in the same or different roles.
+  - {id: position__owns__physical_technology_component, name: owns, inverse: is owned by, source: position, target: physical_technology_component, provenance: LOCAL, diagrams: [enterprise, integration]}
+  - {id: physical_technology_component__realises__capability, name: realises, inverse: is realised by, source: physical_technology_component, target: capability, provenance: CORE_EA, diagrams: [enterprise, integration], description: Capability is realised by Technology.}
+  - {id: information_asset__relates_to__capability, name: relates to, inverse: is related to by, source: information_asset, target: capability, provenance: LOCAL, diagrams: [enterprise, information]}
+  - {id: business_definition__relates_to__any, name: relates to, inverse: is defined by, source: business_definition, target: ANY, provenance: LOCAL, diagrams: [enterprise, information], description: A glossary term may relate to any element.}
+  - {id: driver__creates__goal, name: creates, inverse: is created by, source: driver, target: goal, provenance: CORE_EA, diagrams: [enterprise]}
+  - {id: goal__constitutes__goal, name: constitutes, inverse: is constituted by, source: goal, target: goal, provenance: CORE_EA, diagrams: [enterprise]}
+  # --- information
+  - {id: work_package__impacts__any, name: impacts, inverse: is impacted by, source: work_package, target: ANY, provenance: CORE_EA, diagrams: [information, process], description: Project impacts Object.}
+  - {id: physical_technology_component__contributes_to__information_asset, name: contributes to, inverse: is contributed to by, source: physical_technology_component, target: information_asset, provenance: LOCAL, diagrams: [information]}
+  - {id: physical_application_component__contributes_to__information_asset, name: contributes to, inverse: is contributed to by, source: physical_application_component, target: information_asset, provenance: LOCAL, diagrams: [information]}
+  - {id: logical_data_component__categorises__information_asset, name: categorises, inverse: is categorised by, source: logical_data_component, target: information_asset, provenance: LOCAL, diagrams: [information], description: A level-2 Logical Data Component (topic) categorises an Information Asset.}
+  - {id: physical_application_component__processes__logical_data_component, name: processes, inverse: is processed by, source: physical_application_component, target: logical_data_component, provenance: LOCAL, diagrams: [information]}
+  - {id: physical_application_component__processes__data_entity, name: processes, inverse: is processed by, source: physical_application_component, target: data_entity, provenance: CORE_EA, diagrams: [information, integration]}
+  - {id: logical_data_component__encapsulates__data_entity, name: encapsulates, inverse: is encapsulated by, source: logical_data_component, target: data_entity, provenance: CORE_EA, diagrams: [information]}
+  - {id: logical_data_component__constitutes__logical_data_component, name: constitutes, inverse: is constituted by, source: logical_data_component, target: logical_data_component, provenance: CORE_EA, diagrams: [information], description: The level hierarchy of logical data components.}
+  - {id: logical_data_component__is_related_to__logical_data_component, name: is related to, inverse: is related to, source: logical_data_component, target: logical_data_component, provenance: LOCAL, diagrams: [information]}
+  - {id: data_entity__contributes_to__data_product, name: contributes to, inverse: is contributed to by, source: data_entity, target: data_product, provenance: LOCAL, diagrams: [information]}
+  - {id: data_product__applies__measure, name: applies, inverse: is applied by, source: data_product, target: measure, provenance: LOCAL, diagrams: [information]}
+  - {id: measure__applies_to__data_entity, name: applies to, inverse: has measure, source: measure, target: data_entity, provenance: LOCAL, diagrams: [information]}
+  - {id: physical_application_component__provides_or_uses__interface, name: provides to / uses, inverse: is provided by / used by, source: physical_application_component, target: interface, provenance: CORE_EA, diagrams: [information]}
+  - {id: logical_data_component__traverses__interface, name: traverses, inverse: is traversed by, source: logical_data_component, target: interface, provenance: LOCAL, diagrams: [information]}
+  - {id: integration__processes__logical_data_component, name: processes, inverse: is processed by, source: integration, target: logical_data_component, provenance: LOCAL, diagrams: [information, integration]}
+  - {id: integration__contributes_to__interface, name: contributes to, inverse: is contributed to by, source: integration, target: interface, provenance: LOCAL, diagrams: [information]}
+  # --- integration
+  - {id: physical_technology_component__is_source_for__integration, name: is source for, inverse: has source, source: physical_technology_component, target: integration, provenance: LOCAL, diagrams: [integration]}
+  - {id: physical_technology_component__is_target_of__integration, name: is target of, inverse: has target, source: physical_technology_component, target: integration, provenance: LOCAL, diagrams: [integration]}
+  - {id: physical_technology_component__realises__integration, name: realises, inverse: is realised by, source: physical_technology_component, target: integration, provenance: LOCAL, diagrams: [integration]}
+  - {id: physical_application_component__is_source_for__integration, name: is source for, inverse: has source, source: physical_application_component, target: integration, provenance: LOCAL, diagrams: [integration]}
+  - {id: physical_application_component__is_target_of__integration, name: is target of, inverse: has target, source: physical_application_component, target: integration, provenance: LOCAL, diagrams: [integration]}
+  - {id: integration__supports__capability, name: supports, inverse: is supported by, source: integration, target: capability, provenance: LOCAL, diagrams: [integration]}
+  - {id: physical_technology_component__realises__physical_application_component, name: realises, inverse: is realised by, source: physical_technology_component, target: physical_application_component, provenance: CORE_EA, diagrams: [integration], description: Technology realises Application.}
+  - {id: physical_technology_component__stores__data_entity, name: stores, inverse: is stored in, source: physical_technology_component, target: data_entity, provenance: LOCAL, diagrams: [integration]}
+  - {id: physical_application_component__realises__logical_application_component, name: realises, inverse: is realised by, source: physical_application_component, target: logical_application_component, provenance: CORE_EA, diagrams: [integration], description: Application realises Application Category.}
+  - {id: physical_technology_component__realises__logical_technology_component, name: realises, inverse: is realised by, source: physical_technology_component, target: logical_technology_component, provenance: CORE_EA, diagrams: [integration], description: Technology realises Technology Category.}
+  - {id: physical_technology_component__realises__data_product, name: realises, inverse: is realised by, source: physical_technology_component, target: data_product, provenance: LOCAL, diagrams: [integration]}
+  # --- process
+  - {id: organization_unit__contains__process, name: contains, inverse: is contained in, source: organization_unit, target: process, provenance: CORE_EA, diagrams: [process], description: Contains (BPMN).}
+  - {id: process__contains__process, name: contains, inverse: is contained in, source: process, target: process, provenance: CORE_EA, diagrams: [process]}
+  - {id: role__performs__process, name: performs, inverse: is performed by, source: role, target: process, provenance: CORE_EA, diagrams: [process]}
+  - {id: actor__participates_in__process, name: participates in, inverse: has participant, source: actor, target: process, provenance: TOGAF, diagrams: [process]}
+  - {id: actor__performs_task_in__role, name: performs task in, inverse: has task performed by, source: actor, target: role, provenance: CORE_EA, diagrams: [process]}
+  - {id: process__operationalises__value_stream, name: operationalises, inverse: is operationalised by, source: process, target: value_stream, provenance: CORE_EA, diagrams: [process]}
+  - {id: process__operationalises__capability, name: operationalises, inverse: is operationalised by, source: process, target: capability, provenance: CORE_EA, diagrams: [process], description: Drawn separately from "Process realises Capability" on the enterprise diagram; both are kept as transcribed.}
+  - {id: capability__enables__value_stream, name: enables, inverse: is enabled by, source: capability, target: value_stream, provenance: CORE_EA, diagrams: [process]}
+  - {id: value_stream__constitutes__value_stream, name: constitutes, inverse: is constituted by, source: value_stream, target: value_stream, provenance: CORE_EA, diagrams: [process]}

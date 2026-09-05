@@ -1,0 +1,37 @@
+# Everything `make check` runs, on every change.
+#
+# The two archreator validators need nothing but Python; the code checks need
+# the project's locked environment, installed with uv.
+
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  model:
+    name: Model checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check relative Markdown and HTML links
+        run: python3 scripts/check_links.py
+      - name: Check element-ID references
+        run: python3 scripts/check_model.py
+
+  code:
+    name: Lint and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check src tests app.py && uv run ruff format --check src tests app.py
+      - name: Tests
+        run: uv run pytest -q

@@ -1,0 +1,53 @@
+# Mapping for a one-off export from an EA tool that writes one CSV per element
+# type with the column headers below (a common shape for diagram-centric tools).
+#
+# Adjust the source headers to the export you receive; anything not listed is
+# normalised and kept as an attribute. Element type labels are resolved against
+# the pack by name, so "Logical Data Component" works without listing it; only
+# labels that differ from the pack need a row in type_names.
+source_system: ea-tool
+encoding: utf-8-sig
+files:
+  elements: ["*element*.csv", "*object*.csv"]
+  relationships: ["*relationship*.csv", "*relation*.csv"]
+  links: ["*link*.csv"]
+elements:
+  type_from_filename: false
+  columns:
+    ID: id
+    Name: name
+    Description: description
+    Type: type
+    Object Type: type
+    Lifecycle Status: lifecycle_status
+    Links: links
+    Alias: alias
+    Architectural Status: architectural_status
+    Version Flag: version_flag
+    Source: source
+    Owner: owner
+    Categories: categories
+    Category (General): category_general
+    Standards Class: standards_class
+    Standard Creation Date: standard_creation_date
+    Last Standard Review Date: last_standard_review_date
+    Next Standard Review Date: next_standard_review_date
+    Standard Retire Date: standard_retire_date
+    Level of Logical Data Component: level
+    Approval Status: approval_status
+  type_names:
+    Definition: business_definition
+    Organisation Unit: organization_unit
+    Staff: professional_staff
+  defaults:
+    status: approved
+relationships:
+  columns:
+    Source ID: src_id
+    Source: src_id
+    Relationship: rel_type
+    Relationship Type: rel_type
+    Target ID: dst_id
+    Target: dst_id
+    Role: qualifier
+  rel_names: {}

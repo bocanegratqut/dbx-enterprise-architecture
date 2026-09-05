@@ -1,0 +1,218 @@
+"""The view model: what a diagram shows, independent of how it is drawn."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from typing import Any
+
+from ea.metamodel.registry import Registry
+from ea.services.graph import GraphService
+
+# ArchiMate layers top to bottom, which is also the drawing order.
+LAYER_ORDER = [
+    "motivation",
+    "strategy",
+    "business",
+    "application",
+    "technology",
+    "physical",
+    "implementation",
+    "other",
+]
+LAYER_TITLES = {
+    "motivation": "Motivation",
+    "strategy": "Strategy",
+    "business": "Business",
+    "application": "Application",
+    "technology": "Technology",
+    "physical": "Physical",
+    "implementation": "Implementation & migration",
+    "other": "Other",
+}
+DEFAULT_MAX_NODES = 60
+
+
+@dataclass
+class ViewNode:
+    id: str
+    name: str
+    type_id: str
+    type_name: str
+    layer: str = "other"
+    glyph: str = ""
+    stereotype: str = ""
+    shape: str = "rect"
+    archimate: str = ""
+    focus: bool = False
+    status: str = ""
+    depth: int = 0
+
+    @property
+    def label(self) -> str:
+        """`glyph «Stereotype» Name`, the way the architecture documents write a node."""
+        parts = [self.glyph] if self.glyph else []
+        if self.stereotype:
+            parts.append(f"«{self.stereotype}»")
+        parts.append(self.name)
+        return " ".join(parts)
+
+
+@dataclass
+class ViewEdge:
+    src: str
+    dst: str
+    label: str
+    rel_type_id: str = ""
+    qualifier: str = ""
+
+
+@dataclass
+class View:
+    title: str
+    focus_ids: list[str] = field(default_factory=list)
+    nodes: list[ViewNode] = field(default_factory=list)
+    edges: list[ViewEdge] = field(default_factory=list)
+    note: str = ""
+    omitted: int = 0  # nodes left out by the cap
+
+    def layers(self) -> list[str]:
+        present = {n.layer for n in self.nodes}
+        return [layer for layer in LAYER_ORDER if layer in present]
+
+    def nodes_in(self, layer: str) -> list[ViewNode]:
+        return [n for n in self.nodes if n.layer == layer]
+
+    def ids(self) -> list[str]:
+        return [n.id for n in self.nodes]
+
+
+def layer_rank(layer: str) -> int:
+    return LAYER_ORDER.index(layer) if layer in LAYER_ORDER else len(LAYER_ORDER)
+
+
+def _node(registry: Registry, d: dict[str, Any], focus: bool) -> ViewNode:
+    notation = registry.notation(d.get("type_id", ""))
+    return ViewNode(
+        id=d["element_id"],
+        name=d.get("name") or d["element_id"],
+        type_id=d.get("type_id", ""),
+        type_name=d.get("type_name") or d.get("type_id", ""),
+        layer=notation.get("layer", "other"),
+        glyph=notation.get("glyph", ""),
+        stereotype=notation.get("stereotype", ""),
+        shape=notation.get("shape", "rect"),
+        archimate=notation.get("archimate", ""),
+        focus=focus,
+        status=d.get("status", "") or "",
+        depth=int(d.get("depth", 0) or 0),
+    )
+
+
+def _finish(view: View) -> View:
+    """Deterministic order: layer, then type, then name; edges by ends and label."""
+    view.nodes.sort(key=lambda n: (layer_rank(n.layer), n.type_name, n.name.lower(), n.id))
+    view.edges.sort(key=lambda e: (e.src, e.dst, e.label))
+    return view
+
+
+def view_from_ids(
+    registry: Registry,
+    graph: GraphService,
+    ids: list[str],
+    title: str,
+    focus_ids: list[str] | None = None,
+    max_nodes: int = DEFAULT_MAX_NODES,
+) -> View:
+    """The elements named plus every relationship among them, from the store."""
+    focus = set(focus_ids or [])
+    wanted: list[str] = []
+    for i in ids:
+        if i not in wanted:
+            wanted.append(i)
+    keep = [i for i in wanted if i in focus] + [i for i in wanted if i not in focus]
+    omitted = max(0, len(keep) - max_nodes)
+    keep = keep[:max_nodes]
+    view = View(title=title, focus_ids=[i for i in keep if i in focus], omitted=omitted)
+    known = set()
+    for i in keep:
+        try:
+            d = graph.node(i)
+        except Exception:  # noqa: BLE001 — an id the store does not know is simply not drawn
+            continue
+        known.add(i)
+        view.nodes.append(_node(registry, d, i in focus))
+    for e in graph.edges_among(list(known)):
+        view.edges.append(
+            ViewEdge(
+                src=e["src_id"],
+                dst=e["dst_id"],
+                label=e["label"],
+                rel_type_id=e.get("rel_type_id", "") or "",
+                qualifier=e.get("qualifier", "") or "",
+            )
+        )
+    if omitted:
+        view.note = f"{omitted} more element(s) not shown."
+    return _finish(view)
+
+
+def view_from_neighbourhood(
+    registry: Registry,
+    graph: GraphService,
+    element_id: str,
+    depth: int = 1,
+    max_nodes: int = DEFAULT_MAX_NODES,
+) -> View:
+    sub = graph.neighbours(element_id, depth, max_nodes=max_nodes)
+    centre = sub["centre"]
+    name = next((n["name"] for n in sub["nodes"] if n["element_id"] == centre), centre)
+    view = View(title=f"{name} and its neighbourhood (depth {depth})", focus_ids=[centre])
+    for n in sub["nodes"]:
+        view.nodes.append(_node(registry, n, n["element_id"] == centre))
+    for e in sub["edges"]:
+        view.edges.append(
+            ViewEdge(
+                e["src_id"], e["dst_id"], e["label"], e.get("rel_type_id") or "", e.get("qualifier") or ""
+            )
+        )
+    if sub.get("truncated"):
+        view.note = f"Neighbourhood capped at {max_nodes} elements."
+    return _finish(view)
+
+
+def view_from_impact(
+    registry: Registry, graph: GraphService, result: dict[str, Any], max_nodes: int = DEFAULT_MAX_NODES
+) -> View:
+    """The impact result of :meth:`GraphService.impact` as a view: centre, upstream and downstream, and the edges among them."""
+    centre = result["element"]
+    ids = [centre["element_id"]]
+    for row in sorted(result["upstream"] + result["downstream"], key=lambda r: (r["depth"], r["element_id"])):
+        if row["element_id"] not in ids:
+            ids.append(row["element_id"])
+    view = view_from_ids(
+        registry,
+        graph,
+        ids,
+        title=f"Impact of {centre['name']}",
+        focus_ids=[centre["element_id"]],
+        max_nodes=max_nodes,
+    )
+    depths = {r["element_id"]: r["depth"] for r in result["upstream"] + result["downstream"]}
+    for n in view.nodes:
+        n.depth = depths.get(n.id, 0)
+    return view
+
+
+def view_to_dict(view: View) -> dict[str, Any]:
+    return asdict(view)
+
+
+def view_from_dict(d: dict[str, Any]) -> View:
+    return View(
+        title=d.get("title", ""),
+        focus_ids=list(d.get("focus_ids") or []),
+        nodes=[ViewNode(**n) for n in d.get("nodes") or []],
+        edges=[ViewEdge(**e) for e in d.get("edges") or []],
+        note=d.get("note", ""),
+        omitted=int(d.get("omitted", 0) or 0),
+    )
