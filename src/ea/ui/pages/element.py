@@ -9,7 +9,8 @@ import dash_mantine_components as dmc
 from dash import ALL, Input, Output, State, dcc, html, no_update
 from dash import ctx as dash_ctx
 
-from ea.models import ConflictError, Link, NotFoundError, ValidationError
+from ea.models import CURRENT_STATES, TARGET_STATES, ConflictError, Link, NotFoundError, ValidationError
+from ea.services.target import CURRENT_STYLE, TARGET_STYLE, state_label
 from ea.ui import graph as gp
 from ea.ui import ids
 from ea.ui.components import (
@@ -25,11 +26,16 @@ from ea.ui.components import (
     view_toolbar,
 )
 from ea.ui.context import AppContext, get_context
+from ea.ui.pages.target import current_badge, target_badge
 from ea.views import view_from_neighbourhood
 from ea.views.drawio import to_drawio
 from ea.views.mermaid import to_markdown, to_mermaid
 
 STATUS_OPTIONS = ["draft", "approved", "retired"]
+CURRENT_OPTIONS = [{"value": s, "label": state_label(s, CURRENT_STYLE)} for s in CURRENT_STATES]
+TARGET_OPTIONS = [
+    {"value": s, "label": f"{TARGET_STYLE[s]['glyph']} {TARGET_STYLE[s]['label']}"} for s in TARGET_STATES
+]
 
 
 def _attr_input(a, value: Any):
@@ -113,6 +119,36 @@ def _history_table(ctx: AppContext, element_id: str):
     )
 
 
+def _state_card(ctx: AppContext, e) -> dmc.Paper:
+    wp = ctx.backend.get_element(e.target_work_package) if e.target_work_package else None
+    return dmc.Paper(
+        [
+            dmc.Title("State", order=5, mb="xs"),
+            kv_table(
+                [
+                    ("Current state", current_badge(e.current_state)),
+                    ("Target state", target_badge(e.target_state)),
+                    (
+                        "Work package",
+                        dmc.Anchor(wp.name, href=f"/target?wp={wp.element_id}", size="sm")
+                        if wp
+                        else dmc.Text(e.target_work_package or "—", size="sm", c="dimmed"),
+                    ),
+                    ("Note", dmc.Text(e.target_note or "—", size="sm")),
+                ]
+            ),
+            dmc.Text(
+                "What is true today against what the organisation intends; edit both on the Edit tab, analyse per work package on the Target state page.",
+                size="xs",
+                c="dimmed",
+                mt="xs",
+            ),
+        ],
+        p="md",
+        withBorder=True,
+    )
+
+
 def render(ctx: AppContext, element_id: str) -> html.Div:
     try:
         d = ctx.repo.element_detail(element_id)
@@ -133,6 +169,8 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
                             dmc.Title(e.name, order=2),
                             type_badge(ctx.registry, e.type_id),
                             status_badge(e.status),
+                            current_badge(e.current_state),
+                            target_badge(e.target_state) if e.target_state != "undecided" else None,
                         ],
                         gap="sm",
                     ),
@@ -194,6 +232,7 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
                 p="md",
                 withBorder=True,
             ),
+            _state_card(ctx, e),
         ],
         cols={"base": 1, "md": 2},
         spacing="md",
@@ -225,6 +264,41 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
                     value="\n".join(f"{ln.url} | {ln.label}" if ln.label else ln.url for ln in e.links),
                     autosize=True,
                     minRows=2,
+                ),
+                dmc.Title("State", order=5),
+                dmc.SimpleGrid(
+                    [
+                        dmc.Select(
+                            id=ids.EL_CURRENT_STATE,
+                            label="Current state",
+                            data=CURRENT_OPTIONS,
+                            value=e.current_state,
+                            allowDeselect=False,
+                        ),
+                        dmc.Select(
+                            id=ids.EL_TARGET_STATE,
+                            label="Target state",
+                            data=TARGET_OPTIONS,
+                            value=e.target_state,
+                            allowDeselect=False,
+                        ),
+                        dmc.Select(
+                            id=ids.EL_TARGET_WP,
+                            label="Work package",
+                            data=ctx.work_package_options(),
+                            value=e.target_work_package or None,
+                            searchable=True,
+                            clearable=True,
+                            placeholder="None",
+                        ),
+                        dmc.TextInput(
+                            id=ids.EL_TARGET_NOTE,
+                            label="Target note",
+                            value=e.target_note,
+                            placeholder="Why, and into what for merge",
+                        ),
+                    ],
+                    cols={"base": 1, "md": 4},
                 ),
                 dmc.Title("Type attributes", order=5) if own else None,
                 dmc.SimpleGrid([_attr_input(a, e.attrs.get(a.name)) for a in own], cols={"base": 1, "md": 3})
@@ -412,12 +486,32 @@ def register(app: dash.Dash) -> None:
         State(ids.EL_LIFECYCLE, "value"),
         State(ids.EL_DESC, "value"),
         State(ids.EL_LINKS, "value"),
+        State(ids.EL_CURRENT_STATE, "value"),
+        State(ids.EL_TARGET_STATE, "value"),
+        State(ids.EL_TARGET_WP, "value"),
+        State(ids.EL_TARGET_NOTE, "value"),
         State({"type": ids.EL_ATTR, "name": ALL}, "value"),
         State({"type": ids.EL_ATTR, "name": ALL}, "id"),
         prevent_initial_call=True,
         running=[(Output(ids.EL_SAVE, "loading"), True, False)],
     )
-    def save(n, element_id, version, name, key, status, lifecycle, desc, links_text, attr_values, attr_ids):
+    def save(
+        n,
+        element_id,
+        version,
+        name,
+        key,
+        status,
+        lifecycle,
+        desc,
+        links_text,
+        current_state,
+        target_state,
+        target_wp,
+        target_note,
+        attr_values,
+        attr_ids,
+    ):
         if not n:
             return no_update, no_update, no_update
         ctx = get_context()
@@ -438,6 +532,10 @@ def register(app: dash.Dash) -> None:
                 description_md=desc or "",
                 attrs=attrs,
                 links=_parse_links(element_id, links_text),
+                current_state=current_state or "live",
+                target_state=target_state or "undecided",
+                target_work_package=target_wp or "",
+                target_note=target_note or "",
             )
         except ConflictError as exc:
             return (

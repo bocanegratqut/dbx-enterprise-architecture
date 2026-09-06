@@ -32,6 +32,7 @@ GROUP_OPTIONS = [
     {"value": "type", "label": "Group by element type"},
     {"value": "status", "label": "Group by status"},
     {"value": "source", "label": "Group by source system"},
+    {"value": "target", "label": "Group by target state"},
 ]
 LAYOUT_OPTIONS = [
     {"value": "grouped", "label": "Grouped grid"},
@@ -87,6 +88,8 @@ def raw_from_subgraph(registry: Registry, sub: dict[str, Any]) -> dict[str, Any]
                 "status": n.get("status", "") or "",
                 "source": n.get("source", "") or "",
                 "depth": n.get("depth", 0),
+                "current_state": n.get("current_state", "") or "",
+                "target_state": n.get("target_state", "") or "",
             }
         )
     edges = [
@@ -203,6 +206,15 @@ def _group_key(n: dict[str, Any], group_by: str, registry: Registry) -> tuple[st
         src = n.get("source") or "no source"
         idx = sum(ord(c) for c in src) % len(SOURCE_PALETTE)
         return f"g:source:{src}", src, SOURCE_PALETTE[idx]
+    if group_by == "target":
+        from ea.services.target import TARGET_STYLE, state_label
+
+        st = n.get("target_state") or "undecided"
+        return (
+            f"g:target:{st}",
+            state_label(st, TARGET_STYLE),
+            TARGET_STYLE.get(st, TARGET_STYLE["undecided"])["hex"] + "55",
+        )
     return "", "", ""
 
 

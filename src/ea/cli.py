@@ -1,4 +1,4 @@
-"""Command line: initialise, load packs, import CSVs, ask graph questions."""
+"""Command line: initialise, load packs, import CSVs, ask graph questions, work on branches."""
 
 from __future__ import annotations
 
@@ -7,12 +7,30 @@ from pathlib import Path
 
 import typer
 
+from ea.backend.branching import MAIN, set_branch
 from ea.config import Settings
 
 app = typer.Typer(
     help="EA repository — a generic, metamodel-driven enterprise architecture repository.",
     no_args_is_help=True,
 )
+branch_app = typer.Typer(
+    help="Branches of the model: create, diff, merge item by item, abandon.", no_args_is_help=True
+)
+app.add_typer(branch_app, name="branch")
+
+
+@app.callback()
+def main(
+    branch: str = typer.Option(
+        None,
+        "--branch",
+        "-b",
+        envvar="EA_BRANCH",
+        help="Work on this branch instead of main (every read and write of the command honours it).",
+    ),
+):
+    set_branch(branch or MAIN)
 
 
 def _ctx(settings: Settings | None = None):
@@ -30,6 +48,13 @@ def _ctx(settings: Settings | None = None):
         backend.save_pack(pack)
     registry = Registry(pack)
     return settings, backend, registry, RepositoryService(backend, registry), GraphService(backend, registry)
+
+
+def _branches():
+    from ea.services import BranchService
+
+    _, backend, registry, *_ = _ctx()
+    return backend, registry, BranchService(backend, registry)
 
 
 @app.command()
@@ -218,6 +243,121 @@ def view(
         typer.echo(f"{out}: {len(v.nodes)} elements, {len(v.edges)} relationships")
     else:
         typer.echo(text)
+
+
+@app.command()
+def target(
+    work_package: str = typer.Option(
+        None, "--work-package", "-w", help="a work package element id; default: all"
+    ),
+    fmt: str = typer.Option("table", help="table or md (a Markdown section with the marked view)"),
+):
+    """Current state against target state, per work package: counts, the artefacts, and a marked view."""
+    from ea.services import TargetStateService
+    from ea.services.target import CURRENT_STYLE, TARGET_STYLE, state_label
+    from ea.views import view_from_ids
+    from ea.views.mermaid import to_markdown
+
+    _, backend, registry, _, graph = _ctx()
+    svc = TargetStateService(backend, registry)
+    summary = svc.summary(work_package)
+    if fmt == "md":
+        title = "Target state"
+        if work_package:
+            wp = backend.get_element(work_package)
+            title = f"Target state of {wp.name if wp else work_package}"
+        view = view_from_ids(
+            registry, graph, svc.scope_ids(work_package), title, [work_package] if work_package else []
+        )
+        typer.echo(to_markdown(view, marked=True))
+        return
+    typer.echo(
+        f"{summary['elements']} elements, {summary['relationships']} relationships"
+        + (f" under {work_package}" if work_package else "")
+        + f"; {summary['changes']} elements change"
+    )
+    typer.echo("  by target state: " + ", ".join(f"{k} {v}" for k, v in summary["by_target"].items() if v))
+    for e in svc.elements(work_package, only_changes=not work_package):
+        typer.echo(
+            f"  {e.element_id:26s} {e.name[:38]:38s} {state_label(e.current_state, CURRENT_STYLE):18s} -> "
+            f"{state_label(e.target_state, TARGET_STYLE):13s} {e.target_note[:50]}"
+        )
+
+
+@branch_app.command("list")
+def branch_list(status: str = typer.Option(None, help="open, merged or abandoned")):
+    """The branches of the model and how many rows each carries."""
+    _, _, svc = _branches()
+    rows = svc.list(status)
+    if not rows:
+        typer.echo("no branches")
+    for b in rows:
+        typer.echo(
+            f"{b.branch_id:32s} {b.status:10s} {b.changes:5d} rows  {b.work_package or '-':20s} {b.created_by} {str(b.created_at)[:16]}  {b.name}"
+        )
+
+
+@branch_app.command("create")
+def branch_create(
+    name: str,
+    description: str = typer.Option("", help="what the branch is for"),
+    work_package: str = typer.Option(
+        "", "--work-package", "-w", help="the work package element id it belongs to"
+    ),
+    actor: str = typer.Option("cli"),
+):
+    """Create a branch from main (its id is derived from the name)."""
+    _, _, svc = _branches()
+    b = svc.create(name, actor, description, work_package)
+    typer.echo(f"branch '{b.branch_id}' created; use --branch {b.branch_id} on other commands to work on it")
+
+
+@branch_app.command("diff")
+def branch_diff(branch_id: str):
+    """The branch's change set against main: what was added, changed, deleted, and what conflicts."""
+    _, _, svc = _branches()
+    cs = svc.diff(branch_id)
+    c = cs.counts()
+    typer.echo(
+        f"branch '{branch_id}' ({cs.branch.status}): {c['added']} added, {c['changed']} changed, {c['deleted']} deleted, {c['conflicts']} conflicts"
+    )
+    for row in svc.item_rows(cs):
+        flag = "  CONFLICT" if row["conflict"] else ""
+        fields = f"  [{row['fields']}]" if row["fields"] else ""
+        typer.echo(
+            f"  {row['change']:8s} {row['kind']:12s} {row['entity_id']:28s} {row['label']}{fields}{flag}"
+        )
+
+
+@branch_app.command("merge")
+def branch_merge(
+    branch_id: str,
+    include: list[str] = typer.Option(
+        None, "--include", "-i", help="item key(s) to merge (element:<id> or relationship:<id>); default: all"
+    ),
+    resolve: list[str] = typer.Option(
+        None, "--resolve", "-r", help="conflict resolution as key=branch or key=main"
+    ),
+    actor: str = typer.Option("cli"),
+):
+    """Merge the branch into main, item by item; unresolved conflicts and unticked items remain on the branch."""
+    _, _, svc = _branches()
+    resolutions = {}
+    for r in resolve or []:
+        k, _, v = r.partition("=")
+        resolutions[k] = v
+    res = svc.merge(branch_id, actor, set(include) if include else None, resolutions)
+    typer.echo(
+        f"merged {len(res.applied)} item(s), dropped {len(res.dropped)}, {res.remaining} remaining; branch {'closed' if res.closed else 'still open'}"
+    )
+
+
+@branch_app.command("abandon")
+def branch_abandon(branch_id: str, actor: str = typer.Option("cli")):
+    """Close the branch and discard its rows; main is untouched."""
+    _, _, svc = _branches()
+    svc.abandon(branch_id, actor)
+    typer.echo(f"branch '{branch_id}' abandoned")
 
 
 @app.command()

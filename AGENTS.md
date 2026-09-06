@@ -18,8 +18,8 @@ gates for the Requester's approval, record it in a scope document
 documented behaviour skip the alignment and the gates, but still keep the
 docs true.
 
-**The PoC posture** (initiatives 1 to 3, in flight): iterate and fail fast inside
-the approved scope, keep the long-term roadmap in
+**The PoC posture** (initiatives 1 to 5, built; the Databricks step next):
+iterate and fail fast inside the approved scope, keep the long-term roadmap in
 [`architecture/6_transition/`](./architecture/6_transition/README.md) honest,
 and never quietly widen the PoC with a roadmap item.
 
@@ -63,6 +63,16 @@ until the PoC has users and runs on Databricks. The enterprise content it holds
   `assets/ea-views.js` lets a reader arrange a generated view without saving it. A module imports only from layers to its
   left; SQL lives in `backend/` only; framework and institution names live in
   `packs/` and `connectors/` only.
+- **Branches and states.** `main` is the model; a branch is an overlay on the
+  same tables (decision 0006), and the current branch is a context variable
+  (`backend/branching.py`) that every read and write honours: the app sets it
+  from the session, the CLI from `--branch`, a service from `use_branch()`.
+  Never write to `branch_*` tables directly and never bypass it. Every element
+  and relationship carries `current_state`, `target_state`,
+  `target_work_package` and `target_note` (decision 0007); the vocabularies
+  live in `models.py` and are not extended per pack. The Propose module
+  (`agent/proposal.py`) writes only to a branch and only what the architect
+  ticked.
 - `tests/` — pytest on an in-memory DuckDB. `scripts/` — the two archreator
   validators, run before every push.
 
@@ -73,7 +83,7 @@ make install     # uv sync (runtime and dev dependencies)
 make seed        # create data/ea.duckdb, load the higher-education pack and the sample model
 make run         # http://localhost:8050 (Dash debug server, no reloader)
 make check       # ruff + pytest + the two validators — must be green before pushing
-uv run ea --help # the CLI: init, import, validate, find, get, neighbours, trace, impact, view, sql, summary
+uv run ea --help # the CLI: init, import, validate, find, get, neighbours, trace, impact, view, target, sql, summary, branch …; --branch on any command
 ```
 
 The DuckDB file is single-writer: stop the app before running the CLI on the

@@ -65,7 +65,7 @@ brings its own convention.
 | `layer` | The ArchiMate layer that colours the node and orders it top to bottom: `motivation`, `strategy`, `business`, `application`, `technology`, `physical`, `implementation`, `other` | `application` |
 | `glyph` | One character shown before the stereotype, as the architecture documents do | `▤` |
 | `stereotype` | The word in guillemets: `«Data Object»` | `Data Object` |
-| `archimate` | The ArchiMate 3 element the draw.io export uses for its stencil | `DataObject` |
+| `archimate` | The ArchiMate 3 element the draw.io export uses for its stencil. The type whose notation says `WorkPackage` is the one the Target state page and the Propose module treat as the work package (initiative) | `DataObject` |
 | `shape` | Mermaid node shape: `rect`, `round`, `stadium`, `hex`, `cyl`, `subroutine`, `diamond`, `asym` | `rect` |
 | `colour` | On a domain: the palette name the app uses for badges and legends (`blue`, `pink`, `yellow`, `gray`, `teal`, `grape`, …) | `blue` |
 | `hex` | On a domain: the fill colour the graphs use for its elements | `#4dabf7` |

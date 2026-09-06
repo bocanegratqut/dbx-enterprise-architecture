@@ -7,6 +7,7 @@ from typing import Any
 import networkx as nx
 
 from ea.backend.base import DatabaseBackend
+from ea.backend.branching import current_branch
 from ea.metamodel.registry import Registry
 from ea.models import Element, NotFoundError
 
@@ -15,18 +16,20 @@ class GraphService:
     def __init__(self, backend: DatabaseBackend, registry: Registry):
         self.backend = backend
         self.registry = registry
-        self._graph: nx.DiGraph | None = None
-        self._graph_key: tuple[int, int] | None = None
+        # one cached graph per branch: the branch a reader is on decides what the graph holds
+        self._graphs: dict[str, tuple[tuple[int, int], nx.DiGraph]] = {}
 
     # --------------------------------------------------------------- cache
     def invalidate(self) -> None:
-        self._graph = None
+        self._graphs.clear()
 
     def graph(self) -> nx.DiGraph:
-        """The whole graph in memory. An EA repository is thousands of nodes; rebuilding takes milliseconds."""
+        """The whole graph in memory, for the current branch. An EA repository is thousands of nodes; rebuilding takes milliseconds."""
+        branch = current_branch()
         key = (self.backend.count_elements(), self.backend.count_relationships())
-        if self._graph is not None and self._graph_key == key:
-            return self._graph
+        cached = self._graphs.get(branch)
+        if cached is not None and cached[0] == key:
+            return cached[1]
         g = nx.DiGraph()
         for e in self.backend.find_elements(limit=1_000_000):
             g.add_node(
@@ -36,6 +39,9 @@ class GraphService:
                 status=e.status,
                 key=e.key,
                 source=e.source_system or "",
+                current_state=e.current_state,
+                target_state=e.target_state,
+                target_work_package=e.target_work_package or "",
             )
         for row in self.backend.edges_frame().itertuples(index=False):
             g.add_edge(
@@ -46,8 +52,9 @@ class GraphService:
                 if isinstance(row.qualifier, str)
                 else "",  # NaN from the frame is not a qualifier
                 relationship_id=row.relationship_id,
+                target_state=row.target_state if isinstance(row.target_state, str) else "undecided",
             )
-        self._graph, self._graph_key = g, key
+        self._graphs[branch] = (key, g)
         return g
 
     # ------------------------------------------------------------ helpers
@@ -68,6 +75,9 @@ class GraphService:
             "status": d.get("status"),
             "key": d.get("key", ""),
             "source": d.get("source", ""),
+            "current_state": d.get("current_state", "live"),
+            "target_state": d.get("target_state", "undecided"),
+            "target_work_package": d.get("target_work_package", ""),
         }
 
     def _element_dict(self, e: Element) -> dict[str, Any]:
@@ -80,6 +90,9 @@ class GraphService:
             "status": e.status,
             "key": e.key,
             "source": e.source_system or "",
+            "current_state": e.current_state,
+            "target_state": e.target_state,
+            "target_work_package": e.target_work_package or "",
         }
 
     def _edge_dict(self, u: str, v: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -94,6 +107,7 @@ class GraphService:
             "rel_type_id": data.get("rel_type_id"),
             "label": label,
             "qualifier": data.get("qualifier", ""),
+            "target_state": data.get("target_state", "undecided") or "undecided",
         }
 
     def node(self, element_id: str) -> dict[str, Any]:

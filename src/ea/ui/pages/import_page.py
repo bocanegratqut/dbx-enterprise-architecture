@@ -31,6 +31,12 @@ def render(ctx: AppContext) -> html.Div:
                 "Import",
                 "Drop CSV files that follow the contract in connectors/README.md (elements, relationships, links), validate them against the metamodel, then load. Re-importing updates rather than duplicates.",
             ),
+            alert(
+                f"You are on branch {ctx.branch()}: what you load lands on the branch and reaches main when it is merged."
+                if ctx.on_branch()
+                else "You are on main: what you load changes the model directly. Switch to a branch in the header to stage an import for review.",
+                "orange" if ctx.on_branch() else "blue",
+            ),
             dmc.SimpleGrid(
                 [
                     dmc.Paper(

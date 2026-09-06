@@ -46,6 +46,8 @@ class ViewNode:
     focus: bool = False
     status: str = ""
     depth: int = 0
+    current_state: str = "live"
+    target_state: str = "undecided"
 
     @property
     def label(self) -> str:
@@ -64,6 +66,7 @@ class ViewEdge:
     label: str
     rel_type_id: str = ""
     qualifier: str = ""
+    target_state: str = "undecided"
 
 
 @dataclass
@@ -105,6 +108,8 @@ def _node(registry: Registry, d: dict[str, Any], focus: bool) -> ViewNode:
         focus=focus,
         status=d.get("status", "") or "",
         depth=int(d.get("depth", 0) or 0),
+        current_state=d.get("current_state") or "live",
+        target_state=d.get("target_state") or "undecided",
     )
 
 
@@ -113,6 +118,13 @@ def _finish(view: View) -> View:
     view.nodes.sort(key=lambda n: (layer_rank(n.layer), n.type_name, n.name.lower(), n.id))
     view.edges.sort(key=lambda e: (e.src, e.dst, e.label))
     return view
+
+
+def has_state_markers(view: View) -> bool:
+    """Whether anything in the view has a target state worth marking."""
+    return any(
+        n.target_state not in ("undecided", "keep") or n.current_state != "live" for n in view.nodes
+    ) or any(e.target_state not in ("undecided", "keep") for e in view.edges)
 
 
 def view_from_ids(
@@ -149,6 +161,7 @@ def view_from_ids(
                 label=e["label"],
                 rel_type_id=e.get("rel_type_id", "") or "",
                 qualifier=e.get("qualifier", "") or "",
+                target_state=e.get("target_state") or "undecided",
             )
         )
     if omitted:
@@ -172,7 +185,12 @@ def view_from_neighbourhood(
     for e in sub["edges"]:
         view.edges.append(
             ViewEdge(
-                e["src_id"], e["dst_id"], e["label"], e.get("rel_type_id") or "", e.get("qualifier") or ""
+                e["src_id"],
+                e["dst_id"],
+                e["label"],
+                e.get("rel_type_id") or "",
+                e.get("qualifier") or "",
+                e.get("target_state") or "undecided",
             )
         )
     if sub.get("truncated"):

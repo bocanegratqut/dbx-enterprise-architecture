@@ -11,7 +11,17 @@ from typing import Any
 
 from ea.backend.base import DatabaseBackend
 from ea.metamodel.registry import Registry
-from ea.models import Element, Link, NotFoundError, Relationship, ValidationError
+from ea.models import (
+    CURRENT_STATES,
+    TARGET_STATES,
+    Element,
+    Link,
+    NotFoundError,
+    Relationship,
+    ValidationError,
+)
+
+STATE_FIELDS = ("current_state", "target_state", "target_work_package", "target_note")
 
 
 def relationship_key(
@@ -149,6 +159,10 @@ class RepositoryService:
         lifecycle_status: str = "",
         links: list[Link] | None = None,
         origin: str = "user",
+        current_state: str = "live",
+        target_state: str = "undecided",
+        target_work_package: str = "",
+        target_note: str = "",
     ) -> Element:
         t = self.registry.resolve_type(type_id)
         if t is None:
@@ -157,6 +171,7 @@ class RepositoryService:
         issues = [i for i in self.registry.validate_element(t.id, attrs) if i.level == "error"]
         if not name or not name.strip():
             issues.append(_err("missing_name", "name is required"))
+        issues += self._state_issues(current_state, target_state, target_work_package)
         if issues:
             raise ValidationError(issues)
         e = Element(
@@ -170,6 +185,10 @@ class RepositoryService:
             attrs=attrs,
             origin=origin,
             source_system="" if origin == "user" else origin,
+            current_state=current_state or "live",
+            target_state=target_state or "undecided",
+            target_work_package=target_work_package or "",
+            target_note=target_note or "",
         )
         e = self.backend.insert_element(e, actor)
         if links:
@@ -183,14 +202,17 @@ class RepositoryService:
             if t is None:
                 raise ValidationError([_err("unknown_type", f"unknown element type {fields['type_id']!r}")])
             e.type_id = t.id
-        for k in ("name", "key", "description_md", "status", "lifecycle_status"):
+        for k in ("name", "key", "description_md", "status", "lifecycle_status", *STATE_FIELDS):
             if k in fields and fields[k] is not None:
                 setattr(e, k, fields[k])
+        e.current_state = e.current_state or "live"
+        e.target_state = e.target_state or "undecided"
         if "attrs" in fields and fields["attrs"] is not None:
             e.attrs = coerce_attrs(self.registry, e.type_id, fields["attrs"])
         issues = [i for i in self.registry.validate_element(e.type_id, e.attrs) if i.level == "error"]
         if not e.name.strip():
             issues.append(_err("missing_name", "name is required"))
+        issues += self._state_issues(e.current_state, e.target_state, e.target_work_package)
         if issues:
             raise ValidationError(issues)
         e = self.backend.update_element(e, actor, expected_version)
@@ -199,6 +221,39 @@ class RepositoryService:
         else:
             e.links = self.backend.get_links(element_id)
         return e
+
+    def _state_issues(self, current_state: str, target_state: str, work_package: str) -> list:
+        issues = []
+        if current_state and current_state not in CURRENT_STATES:
+            issues.append(_err("unknown_current_state", f"current_state must be one of {CURRENT_STATES}"))
+        if target_state and target_state not in TARGET_STATES:
+            issues.append(_err("unknown_target_state", f"target_state must be one of {TARGET_STATES}"))
+        if work_package and self.backend.get_element(work_package) is None:
+            issues.append(
+                _err("unknown_work_package", f"no element with id {work_package!r} to be the work package")
+            )
+        return issues
+
+    def set_states(
+        self,
+        element_id: str,
+        actor: str,
+        expected_version: int,
+        current_state: str | None = None,
+        target_state: str | None = None,
+        target_work_package: str | None = None,
+        target_note: str | None = None,
+    ) -> Element:
+        """Change only the state fields of an element."""
+        return self.update_element(
+            element_id,
+            actor,
+            expected_version,
+            current_state=current_state,
+            target_state=target_state,
+            target_work_package=target_work_package,
+            target_note=target_note,
+        )
 
     def retire_element(self, element_id: str, actor: str, expected_version: int) -> Element:
         return self.update_element(element_id, actor, expected_version, status="retired")
@@ -212,6 +267,10 @@ class RepositoryService:
         qualifier: str = "",
         attrs: dict[str, Any] | None = None,
         origin: str = "user",
+        current_state: str = "live",
+        target_state: str = "undecided",
+        target_work_package: str = "",
+        target_note: str = "",
     ) -> Relationship:
         src, dst = self.element(src_id), self.element(dst_id)
         rt = self.registry.resolve_rel_type(rel_type, src.type_id, dst.type_id)
@@ -232,6 +291,7 @@ class RepositoryService:
             for i in self.registry.validate_relationship(rt.id, src.type_id, dst.type_id, qualifier)
             if i.level == "error"
         ]
+        issues += self._state_issues(current_state, target_state, target_work_package)
         if issues:
             raise ValidationError(issues)
         rel = Relationship(
@@ -243,10 +303,40 @@ class RepositoryService:
             attrs=attrs or {},
             status="approved",
             origin=origin,
+            current_state=current_state or "live",
+            target_state=target_state or "undecided",
+            target_work_package=target_work_package or "",
+            target_note=target_note or "",
         )
-        if self.backend.get_relationship(rel.relationship_id):
-            return self.backend.get_relationship(rel.relationship_id)  # type: ignore[return-value]
+        existing = self.backend.get_relationship(rel.relationship_id)
+        if existing:
+            return existing
         return self.backend.insert_relationship(rel, actor)
+
+    def set_relationship_states(
+        self,
+        relationship_id: str,
+        actor: str,
+        current_state: str | None = None,
+        target_state: str | None = None,
+        target_work_package: str | None = None,
+        target_note: str | None = None,
+    ) -> Relationship:
+        r = self.backend.get_relationship(relationship_id)
+        if r is None:
+            raise NotFoundError(relationship_id)
+        for k, v in (
+            ("current_state", current_state),
+            ("target_state", target_state),
+            ("target_work_package", target_work_package),
+            ("target_note", target_note),
+        ):
+            if v is not None:
+                setattr(r, k, v)
+        issues = self._state_issues(r.current_state, r.target_state, r.target_work_package)
+        if issues:
+            raise ValidationError(issues)
+        return self.backend.update_relationship(r, actor)
 
     def remove_relationship(self, relationship_id: str, actor: str) -> None:
         self.backend.delete_relationship(relationship_id, actor)

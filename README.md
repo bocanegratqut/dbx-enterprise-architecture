@@ -25,6 +25,9 @@ element identifiers it came from.
 | **Generated architecture views** — any neighbourhood, impact or answer as an architecture diagram in the notation of this repository's own architecture documents (Mermaid, ArchiMate layers and stereotypes from the pack), downloadable as Markdown or as a draft draw.io file with ArchiMate stencils and the element identifier on every shape. Shapes can be dragged to arrange a view (never saved) and the draw.io export follows. Nothing is drawn by hand | Element and Impact pages, Ask page, `ea view` |
 | **Graphs with grouping** — every network graph groups its nodes by domain, layer, type, status or source system in labelled boxes, with a grouped grid or an organic layout, coloured from the pack | Element, Impact and Metamodel pages |
 | **Notation editor** — how each domain and type is drawn (layer, glyph, stereotype, ArchiMate element, shape, colour) edited in the app with a live preview, saved into the pack | Metamodel page, Notation tab |
+| **Branches** — several architects draft on their own branch of the model (an overlay on `main`, on the same DuckDB file), edit, import and ask on it as if it were the model, then merge item by item from a merge log: every element and relationship ticked to go to `main` or left on the branch, every conflict (a row `main` changed meanwhile) resolved for the branch or for `main`; abandon discards | Header branch selector, Branches page, `ea branch …`, `--branch` on every command |
+| **Target state** — every element and relationship carries what is true today (`proposed`, `planned`, `in_implementation`, `live`, `retired`, `non_existent`) and what is intended (`undecided`, `keep`, `new`, `change`, `decommission`, `merge`) under a work package; derived from the source's lifecycle text on import; analysed per work package with a current-by-target matrix and a generated view whose shapes carry the markers, in Mermaid and draw.io | Target state page, Element page (State card, Edit tab), `ea target` |
+| **Propose** — hand in a design page (pasted text, Markdown, text or CSV files, links); a reader identifies the elements it names, links the ones that exist, adopts the new ones as proposed, and pushes back with the minimum to add when the sources are insufficient; the result is an editable merge log (include ticks, cells editable, rows added by hand, usable without any model) applied to a branch and kept with it; a downloadable Proposal Template | Propose page, `templates/proposal-template.md` |
 
 The first pack is an anonymised **higher-education** metamodel (59 element types, 27 active; 54
 relationship types with provenance, `ANY` targets and stewardship qualifiers).
@@ -53,7 +56,15 @@ uv run ea view DE-SRS-COURSE --impact --fmt drawio --out impact.drawio
 uv run ea sql "select type_id, count(*) n from element group by 1 order by 2 desc"
 uv run ea validate data/sample            # the validation report without loading
 uv run ea import path/to/export --source ea-tool --mapping connectors/tool-export/mapping.yaml
+uv run ea target -w WP-CMS-UPGRADE        # current against target state of one work package (--fmt md for the marked view)
+uv run ea branch create "CMS upgrade phase 2" -w WP-CMS-UPGRADE
+uv run ea --branch cms-upgrade-phase-2 import path/to/export --source ea-tool   # loads onto the branch, main untouched
+uv run ea branch diff cms-upgrade-phase-2 # the merge log: added, changed, deleted, conflicts
+uv run ea branch merge cms-upgrade-phase-2 -i element:PAC-CMS -r element:PAC-CMS=branch
 ```
+
+Every command reads and writes `main` unless `--branch` (or `EA_BRANCH`) names
+a branch; in the app the header selector does the same for the session.
 
 Stop the app before running the CLI against the same DuckDB file (one writer
 per file), or set `EA_DB_PATH` to another file.
@@ -62,9 +73,39 @@ After editing a pack file, load it again (`uv run ea load-pack packs/higher_educ
 or **Reload from file** on the Metamodel page): the store holds the pack the app
 uses, and the file is only read when asked.
 
-To use a hosted model on the Ask page, set `ANTHROPIC_API_KEY` in the
-environment (or a `.env` file); otherwise the stub provider runs the same tools
-without a model. `EA_AGENT_PROVIDER` forces `anthropic` or `stub`.
+To use a hosted model on the Ask and Propose pages, set `ANTHROPIC_API_KEY` in
+the environment (or a `.env` file); otherwise the stub provider runs the same
+tools without a model (on Propose, the stub reads the Proposal Template's tables
+and nothing else). `EA_AGENT_PROVIDER` forces `anthropic` or `stub`.
+
+## Working on a branch
+
+`main` is the model. A branch is a named overlay on it: reading on a branch
+shows `main` with the branch's rows laid over (changed rows replace, new rows
+appear, deleted rows disappear); writing on a branch touches only the overlay.
+Pick a branch in the header (or create one with the `+`), work as usual, then
+open **Branches**: the change set is a merge log with one row per element and
+relationship, the fields that differ, and a conflict flag wherever `main`
+changed the same row since the branch took its copy. Tick what goes to `main`
+now, choose the branch's row or `main`'s for each conflict, merge; what is not
+ticked remains on the branch, which closes only when nothing remains. The same
+overlay is a `MERGE` on Delta, so nothing here is DuckDB-specific.
+
+## Proposing a change from a document
+
+**Propose** takes a design page: paste it, upload Markdown, text or CSV files,
+or list links. Download the **Proposal Template** for the shape that works
+without any model key: a front table naming the work package, an Elements
+table (type, name, existing id, description, current state, target state) and a
+Relationships table (source, relationship, target, note). The reader links
+elements that exist (by identifier, then by exact name; near-matches are
+flagged, never linked silently), adopts the rest as `proposed` with target
+`new`, resolves every relationship against the metamodel, and lists what is
+missing as pushback (a type the metamodel lacks, a description shorter than a
+sentence, a relationship the pair of types does not allow, no work package).
+The preview is an editable merge log: correct cells, untick rows, add rows by
+hand, re-check, then **Apply to branch**. Review and merge on the Branches
+page; the proposal itself stays with the branch.
 
 ## Loading your own export
 
@@ -98,6 +139,8 @@ Metamodel page and export it.
 | `EA_AGENT_PROVIDER` | `auto` | `anthropic` when a key is present, else `stub` |
 | `EA_AGENT_MODEL` | (provider default) | Model identifier for the hosted provider |
 | `EA_MAX_ROWS` | `5000` | Row cap for Browse and read-only SQL |
+| `EA_BRANCH` | `main` | The branch the CLI works on (same as `--branch`) |
+| `EA_SECRET_KEY` | (random per start) | Signs the session cookie that remembers a reader's branch; set it so sessions survive a restart |
 
 ## Running on Databricks Apps
 

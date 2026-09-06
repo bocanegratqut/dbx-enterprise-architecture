@@ -12,9 +12,15 @@ from pathlib import Path
 import pandas as pd
 
 from ea.backend.base import DatabaseBackend
-from ea.importer.mapping import CORE_ELEMENT_COLUMNS, CORE_LINK_COLUMNS, CORE_RELATIONSHIP_COLUMNS, Mapping
+from ea.importer.mapping import (
+    CORE_ELEMENT_COLUMNS,
+    CORE_LINK_COLUMNS,
+    CORE_RELATIONSHIP_COLUMNS,
+    Mapping,
+    derive_current_state,
+)
 from ea.metamodel.registry import Registry
-from ea.models import Element, ImportReport, Issue, Link, Relationship, slugify
+from ea.models import CURRENT_STATES, TARGET_STATES, Element, ImportReport, Issue, Link, Relationship, slugify
 from ea.services.repository import coerce_attrs, relationship_key
 
 _SPLIT_LINKS = re.compile(r"\s*[|;]\s*")
@@ -63,6 +69,47 @@ def read_directory(
                 seen.add(p)
                 out[kind].append((p.name, _read_csv(p, mapping.encoding)))
     return out
+
+
+def _states(
+    rec: dict, mapping: Mapping, report: ImportReport, row: int, fname: str, entity: str
+) -> dict[str, str]:
+    """The four state fields of a row: given columns first, else the current state derived from the lifecycle text."""
+    lifecycle = rec.get("lifecycle_status") or ""
+    current = (rec.get("current_state") or "").strip().lower().replace(" ", "_").replace("-", "_")
+    if current and current not in CURRENT_STATES:
+        report.issues.append(
+            Issue(
+                "warning",
+                "unknown_current_state",
+                f"current_state {current!r} not recognised; derived from the lifecycle text instead",
+                row=row,
+                entity=entity,
+                file=fname,
+            )
+        )
+        current = ""
+    if not current:
+        current = derive_current_state(lifecycle, mapping.lifecycle_states)
+    target = (rec.get("target_state") or "").strip().lower().replace(" ", "_").replace("-", "_")
+    if target and target not in TARGET_STATES:
+        report.issues.append(
+            Issue(
+                "warning",
+                "unknown_target_state",
+                f"target_state {target!r} not recognised; using 'undecided'",
+                row=row,
+                entity=entity,
+                file=fname,
+            )
+        )
+        target = ""
+    return {
+        "current_state": current,
+        "target_state": target or "undecided",
+        "target_work_package": (rec.get("target_work_package") or "").strip(),
+        "target_note": (rec.get("target_note") or "").strip(),
+    }
 
 
 def _resolve_type(registry: Registry, mapping: Mapping, label: str):
@@ -166,6 +213,7 @@ def build_elements(
                 source_ref=rec.get("source_ref") or eid,
                 attrs=attrs,
                 origin=rec.get("origin") or f"import:{source_system}",
+                **_states(rec, mapping, report, i, fname, eid),
             )
             for j, url in enumerate(u for u in _SPLIT_LINKS.split(rec.get("links") or "") if u):
                 report.links_read += 1
@@ -267,6 +315,7 @@ def build_relationships(
                 origin=f"import:{source_system}",
                 source_system=source_system,
                 source_ref=rec.get("source_ref") or "",
+                **_states(rec, mapping, report, i, fname, f"{src}->{dst}"),
             )
     return list(rels.values())
 
@@ -328,6 +377,18 @@ def import_frames(
         registry, frames.get("relationships", []), mapping, source_system, known, report
     )
     links = inline_links + build_links(frames.get("links", []), mapping, known, report)
+    for e in elements + rels:  # type: ignore[operator]
+        wp = e.target_work_package
+        if wp and wp not in known and backend.get_element(wp) is None:
+            entity = e.element_id if isinstance(e, Element) else f"{e.src_id}->{e.dst_id}"
+            report.issues.append(
+                Issue(
+                    "warning",
+                    "unknown_work_package",
+                    f"target_work_package {wp!r} is not an element; kept as written",
+                    entity=entity,
+                )
+            )
     if dry_run:
         return report
     ins, upd = backend.upsert_elements(elements, actor)

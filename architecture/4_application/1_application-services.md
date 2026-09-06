@@ -3,8 +3,8 @@
 _[← Application layer](./README.md) · [EA home](../README.md)_
 
 **Status: `◐` draft catalogue** — the services the running code offers today,
-named after the four deliverables the owner asked for on 2026-09-05. Validated
-at the **Understanding** gate.
+named after the deliverables the owner asked for on 2026-09-05 (initiatives 1
+to 5). Validated at the **Understanding** gate.
 
 | ID | Service | Offered to | Where |
 | -- | ------- | ---------- | ----- |
@@ -14,9 +14,9 @@ at the **Understanding** gate.
 | `ASVC4` | **Graph query** — neighbours to a depth, upstream and downstream traces, impact summary by type and completeness, read-only SQL over the schema | Architects, the agent | Impact page and the Graph tab; `ea neighbours`, `ea trace`, `ea impact`, `ea sql` |
 | `ASVC5` | **Grounded question answering** — natural-language questions answered through tools over the model, with the tool trace shown and every identifier in the answer checked against what the tools returned; the answer is composed into a document with the elements involved, generated views and the tool trace, downloadable as Markdown. On Databricks the target is a Genie-based agent, or whichever agent framework the platform offers, that traverses the graph and answers in Markdown, with questions, answers and user feedback logged (plateau `PLAT5`) | Architects, and any user who would rather ask than browse | Ask page |
 | `ASVC6` | **Architecture views** — a neighbourhood, an impact or an answer rendered as an architecture diagram in the notation of this repository's own documents (Mermaid), copied or downloaded as Markdown; the same view as a draft draw.io file with ArchiMate stencils and a link on every shape; shapes can be moved on the canvas and the draw.io export follows the arrangement, which is never saved | Architects, the agent | Element (Graph tab), Impact and Ask pages; `ea view` |
-| `ASVC7` | **Branches and merge** — start a branch from `main`, work on it (edit, import, ask) as if it were the model, see its change set against `main` with conflicts, merge it with a choice per conflict, or abandon it | Architects | **Pending — initiative 4**: header branch selector, Branches page, `ea --branch` |
-| `ASVC8` | **Target state** — current state against target state for every element and relationship, counted and listed per work package, drawn as a generated view with state markers | Architects, the organisation | **Pending — initiative 4**: Target state page, the State card on the Element page |
-| `ASVC9` | **Propose** — hand in a document (text, files, links) describing a change; an agent derives the change set, links what exists, adopts what is new as proposed, pushes back when the sources are insufficient; the architect applies the result to a branch | Architects | **Pending — initiative 5**: Propose page, the Proposal Template |
+| `ASVC7` | **Branches and merge** — start a branch from `main`, work on it (edit, import, ask, propose) as if it were the model, see its change set against `main` as a merge log with conflicts, merge it item by item (what is not ticked remains on the branch, a conflict takes the branch's row or `main`'s), or abandon it; the branch closes only when nothing remains | Architects | Header branch selector and New branch modal, Branches page; `ea branch list/create/diff/merge/abandon`, `--branch` on every command |
+| `ASVC8` | **Target state** — current state against target state for every element and relationship, counted and listed per work package with a current-by-target matrix, drawn as a generated view with state markers (new dashed green, change amber, decommission red, merge violet) in Mermaid and draw.io; derived from lifecycle text on import | Architects, the organisation | Target state page, the State card and Edit fields on the Element page, the state columns on Browse; `ea target` |
+| `ASVC9` | **Propose** — hand in a document (text, files, links) describing a change; a reader derives the change set, links what exists (by identifier, then by name, with near-matches flagged rather than linked), adopts what is new as proposed, pushes back with the minimum to add when the sources are insufficient; the architect reviews the result as an editable merge log with include ticks and manual rows, and applies it to a branch (a new one, or an open one); the proposal is kept with the branch | Architects | Propose page, the downloadable Proposal Template (`templates/proposal-template.md`); the stub reader parses the template's tables, the hosted reader reads free text |
 
 ## Relationships
 
@@ -27,7 +27,7 @@ at the **Understanding** gate.
 | `ASVC3` | ⚙ «Application Service» CSV ingestion | `ASVC1` | ⚙ «Application Service» Metamodel management | constrained by | validation report against the pack |
 | `ASVC5` | ⚙ «Application Service» Grounded question answering | `ASVC6` | ⚙ «Application Service» Architecture views | uses | every answer document carries at least one view |
 | `ASVC6` | ⚙ «Application Service» Architecture views | `ASVC4` | ⚙ «Application Service» Graph query | uses | a view is a rendered query |
-| `ASVC9` | ⚙ «Application Service» Propose | `ASVC7` | ⚙ «Application Service» Branches and merge | uses | **Pending — initiative 5**: a proposal always lands on a branch |
-| `ASVC9` | ⚙ «Application Service» Propose | `ASVC4` | ⚙ «Application Service» Graph query | uses | **Pending — initiative 5**: the agent resolves names against the model |
-| `ASVC8` | ⚙ «Application Service» Target state | `ASVC6` | ⚙ «Application Service» Architecture views | uses | **Pending — initiative 4**: the work package view carries state markers |
-| `ASVC2` | ⚙ «Application Service» Element browsing and editing | `ASVC7` | ⚙ «Application Service» Branches and merge | constrained by | **Pending — initiative 4**: edits land on the current branch |
+| `ASVC9` | ⚙ «Application Service» Propose | `ASVC7` | ⚙ «Application Service» Branches and merge | uses | a proposal always lands on a branch |
+| `ASVC9` | ⚙ «Application Service» Propose | `ASVC4` | ⚙ «Application Service» Graph query | uses | the reader resolves names and identifiers against the model |
+| `ASVC8` | ⚙ «Application Service» Target state | `ASVC6` | ⚙ «Application Service» Architecture views | uses | the work package view carries state markers |
+| `ASVC2` | ⚙ «Application Service» Element browsing and editing | `ASVC7` | ⚙ «Application Service» Branches and merge | constrained by | edits, imports and applied proposals land on the current branch |

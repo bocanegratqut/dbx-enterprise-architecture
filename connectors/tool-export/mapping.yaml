@@ -41,6 +41,12 @@ elements:
     Staff: professional_staff
   defaults:
     status: approved
+  # Lifecycle text that the default keywords would not read correctly; anything
+  # else goes through the keyword table in connectors/README.md.
+  lifecycle_states:
+    Being built: in_implementation
+    Sunset: retired
+    Under review: live
 relationships:
   columns:
     Source ID: src_id

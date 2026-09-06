@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from ea.models import Element, Link, Pack, Relationship
+from ea.models import Branch, ChangeSet, Element, Link, MergeResult, Pack, Proposal, Relationship
 
 
 class DatabaseBackend(ABC):
@@ -115,6 +115,41 @@ class DatabaseBackend(ABC):
     # ---------------------------------------------------------------- audit
     @abstractmethod
     def history(self, entity_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]: ...
+
+    # ------------------------------------------------------------- branches
+    # Overlays on the same schema, see decision 0006. Every read and write above honours
+    # the current branch (ea.backend.branching); these manage the branches themselves.
+    @abstractmethod
+    def create_branch(self, branch: Branch, actor: str) -> Branch: ...
+
+    @abstractmethod
+    def get_branch(self, branch_id: str) -> Branch | None: ...
+
+    @abstractmethod
+    def list_branches(self, status: str | None = None) -> list[Branch]: ...
+
+    @abstractmethod
+    def diff_branch(self, branch_id: str) -> ChangeSet: ...
+
+    @abstractmethod
+    def merge_branch(
+        self,
+        branch_id: str,
+        actor: str,
+        include: set[str] | None = None,
+        resolutions: dict[str, str] | None = None,
+    ) -> MergeResult: ...
+
+    @abstractmethod
+    def abandon_branch(self, branch_id: str, actor: str) -> Branch: ...
+
+    # ------------------------------------------------------------ proposals
+    # What an architect handed in and where it went (initiative 5).
+    @abstractmethod
+    def save_proposal(self, p: Proposal) -> Proposal: ...
+
+    @abstractmethod
+    def list_proposals(self, branch_id: str | None = None) -> list[Proposal]: ...
 
     # ------------------------------------------------------------------ sql
     @abstractmethod

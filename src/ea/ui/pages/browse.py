@@ -18,9 +18,11 @@ COLUMNS = [
     {"field": "element_id", "headerName": "id", "width": 200},
     {"field": "name", "flex": 2},
     {"field": "type", "flex": 1},
-    {"field": "status", "width": 110},
-    {"field": "lifecycle_status", "headerName": "lifecycle", "width": 120},
-    {"field": "source_system", "headerName": "source", "width": 120},
+    {"field": "status", "width": 100},
+    {"field": "current_state", "headerName": "current", "width": 120},
+    {"field": "target_state", "headerName": "target", "width": 120},
+    {"field": "lifecycle_status", "headerName": "lifecycle", "width": 110},
+    {"field": "source_system", "headerName": "source", "width": 110},
 ]
 
 
@@ -129,6 +131,8 @@ def register(app: dash.Dash) -> None:
                 "name": e.name,
                 "type": ctx.registry.types[e.type_id].name if e.type_id in ctx.registry.types else e.type_id,
                 "status": e.status,
+                "current_state": e.current_state,
+                "target_state": e.target_state,
                 "lifecycle_status": e.lifecycle_status,
                 "source_system": e.source_system,
             }

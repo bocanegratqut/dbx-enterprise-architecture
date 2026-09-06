@@ -7,6 +7,7 @@ SQL client.
 
 META_TABLES = ["meta_pack", "meta_domain", "meta_element_type", "meta_attribute", "meta_relationship_type"]
 CONTENT_TABLES = ["element", "relationship", "element_link", "change_log"]
+BRANCH_TABLES = ["branch", "branch_element", "branch_relationship", "branch_link", "proposal"]
 
 # Columns added after a table first shipped. A backend applies them to an existing
 # store on start-up (ADD COLUMN IF NOT EXISTS on DuckDB), so an older file keeps
@@ -14,7 +15,26 @@ CONTENT_TABLES = ["element", "relationship", "element_link", "change_log"]
 MIGRATIONS: list[tuple[str, str, str]] = [
     ("meta_domain", "notation", "VARCHAR"),
     ("meta_element_type", "notation", "VARCHAR"),
+    ("element", "current_state", "VARCHAR"),
+    ("element", "target_state", "VARCHAR"),
+    ("element", "target_work_package", "VARCHAR"),
+    ("element", "target_note", "VARCHAR"),
+    ("relationship", "current_state", "VARCHAR"),
+    ("relationship", "target_state", "VARCHAR"),
+    ("relationship", "target_work_package", "VARCHAR"),
+    ("relationship", "target_note", "VARCHAR"),
+    ("change_log", "branch_id", "VARCHAR"),
 ]
+
+STATE_COLUMNS_DDL = """,
+            current_state VARCHAR,
+            target_state VARCHAR,
+            target_work_package VARCHAR,
+            target_note VARCHAR"""
+BRANCH_EXTRA_DDL = """,
+            branch_id VARCHAR NOT NULL,
+            base_version INTEGER NOT NULL,
+            op VARCHAR NOT NULL"""
 
 DDL: dict[str, str] = {
     "meta_pack": """
@@ -103,7 +123,9 @@ DDL: dict[str, str] = {
             created_at TIMESTAMP,
             created_by VARCHAR,
             updated_at TIMESTAMP,
-            updated_by VARCHAR
+            updated_by VARCHAR"""
+    + STATE_COLUMNS_DDL
+    + """
         )""",
     "relationship": """
         CREATE TABLE IF NOT EXISTS relationship (
@@ -121,7 +143,9 @@ DDL: dict[str, str] = {
             created_at TIMESTAMP,
             created_by VARCHAR,
             updated_at TIMESTAMP,
-            updated_by VARCHAR
+            updated_by VARCHAR"""
+    + STATE_COLUMNS_DDL
+    + """
         )""",
     "element_link": """
         CREATE TABLE IF NOT EXISTS element_link (
@@ -141,7 +165,85 @@ DDL: dict[str, str] = {
             changed_at TIMESTAMP,
             before_json VARCHAR,
             after_json VARCHAR,
-            version INTEGER
+            version INTEGER,
+            branch_id VARCHAR
+        )""",
+    "branch": """
+        CREATE TABLE IF NOT EXISTS branch (
+            branch_id VARCHAR NOT NULL,
+            name VARCHAR NOT NULL,
+            description VARCHAR,
+            work_package VARCHAR,
+            status VARCHAR NOT NULL,
+            created_by VARCHAR,
+            created_at TIMESTAMP,
+            closed_by VARCHAR,
+            closed_at TIMESTAMP
+        )""",
+    "branch_element": """
+        CREATE TABLE IF NOT EXISTS branch_element (
+            element_id VARCHAR NOT NULL,
+            type_id VARCHAR NOT NULL,
+            key VARCHAR,
+            name VARCHAR NOT NULL,
+            description_md VARCHAR,
+            status VARCHAR NOT NULL,
+            lifecycle_status VARCHAR,
+            source_system VARCHAR,
+            source_ref VARCHAR,
+            external_ids VARCHAR,
+            attrs VARCHAR,
+            origin VARCHAR,
+            _version INTEGER NOT NULL,
+            created_at TIMESTAMP,
+            created_by VARCHAR,
+            updated_at TIMESTAMP,
+            updated_by VARCHAR"""
+    + STATE_COLUMNS_DDL
+    + BRANCH_EXTRA_DDL
+    + """
+        )""",
+    "branch_relationship": """
+        CREATE TABLE IF NOT EXISTS branch_relationship (
+            relationship_id VARCHAR NOT NULL,
+            rel_type_id VARCHAR NOT NULL,
+            src_id VARCHAR NOT NULL,
+            dst_id VARCHAR NOT NULL,
+            qualifier VARCHAR,
+            attrs VARCHAR,
+            status VARCHAR NOT NULL,
+            origin VARCHAR,
+            source_system VARCHAR,
+            source_ref VARCHAR,
+            _version INTEGER NOT NULL,
+            created_at TIMESTAMP,
+            created_by VARCHAR,
+            updated_at TIMESTAMP,
+            updated_by VARCHAR"""
+    + STATE_COLUMNS_DDL
+    + BRANCH_EXTRA_DDL
+    + """
+        )""",
+    "branch_link": """
+        CREATE TABLE IF NOT EXISTS branch_link (
+            link_id VARCHAR NOT NULL,
+            element_id VARCHAR NOT NULL,
+            url VARCHAR NOT NULL,
+            label VARCHAR,
+            sort_order INTEGER,
+            branch_id VARCHAR NOT NULL
+        )""",
+    "proposal": """
+        CREATE TABLE IF NOT EXISTS proposal (
+            proposal_id VARCHAR NOT NULL,
+            branch_id VARCHAR NOT NULL,
+            title VARCHAR,
+            sources_json VARCHAR,
+            result_json VARCHAR,
+            pushback_json VARCHAR,
+            status VARCHAR,
+            created_by VARCHAR,
+            created_at TIMESTAMP
         )""",
 }
 
@@ -163,6 +265,10 @@ ELEMENT_COLUMNS = [
     "created_by",
     "updated_at",
     "updated_by",
+    "current_state",
+    "target_state",
+    "target_work_package",
+    "target_note",
 ]
 RELATIONSHIP_COLUMNS = [
     "relationship_id",
@@ -180,7 +286,12 @@ RELATIONSHIP_COLUMNS = [
     "created_by",
     "updated_at",
     "updated_by",
+    "current_state",
+    "target_state",
+    "target_work_package",
+    "target_note",
 ]
+STATE_COLUMNS = ["current_state", "target_state", "target_work_package", "target_note"]
 
 # Recursive traversal over the relationship table. Parameters: start id, max depth.
 # `direction` is substituted by the backend: out = follow src->dst, in = dst->src.
@@ -191,7 +302,7 @@ WITH RECURSIVE walk(start_id, node_id, depth, path, rel_path) AS (
     SELECT w.start_id, r.dst_id, w.depth + 1,
            w.path || '>' || r.dst_id,
            CASE WHEN w.rel_path = '' THEN r.rel_type_id ELSE w.rel_path || '>' || r.rel_type_id END
-    FROM walk w JOIN relationship r ON r.src_id = w.node_id
+    FROM walk w JOIN {rel} r ON r.src_id = w.node_id
     WHERE w.depth < ? AND r.status <> 'retired' AND POSITION('>' || r.dst_id || '>' IN '>' || w.path || '>') = 0
 )
 SELECT node_id, MIN(depth) AS depth, MIN_BY(path, depth) AS path, MIN_BY(rel_path, depth) AS rel_path
@@ -205,7 +316,7 @@ WITH RECURSIVE walk(start_id, node_id, depth, path, rel_path) AS (
     SELECT w.start_id, r.src_id, w.depth + 1,
            w.path || '<' || r.src_id,
            CASE WHEN w.rel_path = '' THEN r.rel_type_id ELSE w.rel_path || '<' || r.rel_type_id END
-    FROM walk w JOIN relationship r ON r.dst_id = w.node_id
+    FROM walk w JOIN {rel} r ON r.dst_id = w.node_id
     WHERE w.depth < ? AND r.status <> 'retired' AND POSITION('<' || r.src_id || '<' IN '<' || w.path || '<') = 0
 )
 SELECT node_id, MIN(depth) AS depth, MIN_BY(path, depth) AS path, MIN_BY(rel_path, depth) AS rel_path

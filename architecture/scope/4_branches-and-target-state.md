@@ -60,11 +60,13 @@ changes against `main` today: elements added, changed and deleted,
 relationships added and removed, each with the main row before and the branch
 row after. A change whose base version is older than `main`'s current version
 is a **conflict**: somebody changed the same row on `main` since the branch
-started. Merge applies every non-conflicting change and asks the merger to
-choose, per conflict, the branch's row or `main`'s. A merge writes the change
-log with the branch as the origin, records who merged and when, and closes the
-branch. Abandon closes it without writing. Nothing is rebased: a branch is
-merged once, or abandoned.
+started. The merge is **per item**: the change set is a merge log in which
+every element and relationship is ticked to go to `main` now or left to remain
+on the branch, and every conflict asks the merger to choose the branch's row or
+`main`'s. A merge writes the change log with the branch as the origin and
+records who merged and when; what was merged leaves the branch, what was left
+stays, and the branch closes only when nothing remains. Abandon closes it
+without writing. Nothing is rebased.
 
 **States are core fields, vocabularies are fixed and small.** Every element
 and relationship carries:
@@ -118,12 +120,16 @@ of `PLAT4`, once roles are enforced); a history of target states over time;
 time-based plateaus (a work package is the unit of analysis, as the owner
 asked).
 
+## Delivered
+
+Built on 2026-09-06 on `main`: the branch overlay tables and the request-scoped current branch; diff, merge item by item and abandon; the header branch selector, the New branch modal and the Branches page with the merge log; `--branch` and `ea branch …` on the command line; the four state fields with migrations, the CSV columns and the lifecycle derivation; the State card and Edit fields on the Element page; the Target state page with counts, the current-by-target matrix, tables and the marked view (Mermaid and draw.io); `ea target`; the sample data with a worked work package; tests in `tests/test_branches.py`. Found and fixed while building: an element edited on a branch lost its links in the diff and merge (links now follow the element onto the branch); a re-import of unchanged rows produced empty change-set rows (unchanged rows are skipped).
+
 ## Approvals
 
 | Gate | Decision | By | When | What was shown |
 | ---- | -------- | -- | ---- | -------------- |
 | Direction | Approved | The product owner | 2026-09-05, in the conversation | The request: branches from `main` merged later; current versus target state per artefact, analysed by work package |
-| Understanding | **Pending** | The product owner | — | To be shown: this document, in particular the overlay design, the merge rule (base version, per-conflict choice, no rebase) and the two state vocabularies; `DOBJ2.5`, `DOBJ2.6`, the new fields on `DOBJ2.1` and `DOBJ2.2`; `ASVC7`, `ASVC8`; open questions 12 and 13 |
+| Understanding | Approved with one addition | The product owner | 2026-09-05, in the conversation ("ok, yes, understood. build both") | This document and the worked example of the overlay (two architects, a conflict, the merge); the two state vocabularies; the addition: the merge is per item, a merge log where the architect confirms what goes to `main` and what remains on the branch |
 | Design | N/A — Depth 1; the design section above is the design | — | — | — |
 
 ## Open questions

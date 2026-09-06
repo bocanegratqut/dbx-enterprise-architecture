@@ -7,12 +7,14 @@ import threading
 from dataclasses import dataclass, field
 
 from ea.agent import Agent
+from ea.agent.proposal import ProposalService
 from ea.agent.tools import ToolBox
 from ea.backend import DatabaseBackend, backend_from_settings
+from ea.backend.branching import MAIN, current_branch
 from ea.config import Settings
 from ea.metamodel import Registry, load_pack
 from ea.models import User
-from ea.services import GraphService, RepositoryService
+from ea.services import BranchService, GraphService, RepositoryService, TargetStateService
 
 log = logging.getLogger(__name__)
 _lock = threading.Lock()
@@ -26,11 +28,16 @@ class AppContext:
     registry: Registry
     repo: RepositoryService = field(init=False)
     graph: GraphService = field(init=False)
+    branches: BranchService = field(init=False)
+    target: TargetStateService = field(init=False)
     _agent: Agent | None = field(default=None, init=False)
+    _proposals: ProposalService | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self.repo = RepositoryService(self.backend, self.registry)
         self.graph = GraphService(self.backend, self.registry)
+        self.branches = BranchService(self.backend, self.registry)
+        self.target = TargetStateService(self.backend, self.registry)
 
     @property
     def agent(self) -> Agent:
@@ -38,14 +45,52 @@ class AppContext:
             self._agent = Agent(ToolBox(self.backend, self.registry, self.repo, self.graph), self.settings)
         return self._agent
 
+    @property
+    def proposals(self) -> ProposalService:
+        if self._proposals is None:
+            self._proposals = ProposalService(
+                self.backend,
+                self.registry,
+                self.repo,
+                self.branches,
+                self.target,
+                self.settings,
+                ToolBox(self.backend, self.registry, self.repo, self.graph),
+            )
+        return self._proposals
+
     def reload_registry(self) -> Registry:
         """After the metamodel changed: re-read the stored pack and rebuild everything that depends on it."""
         pack = self.backend.load_pack(self.registry.pack.id) or self.registry.pack
         self.registry = Registry(pack)
         self.repo = RepositoryService(self.backend, self.registry)
         self.graph = GraphService(self.backend, self.registry)
+        self.branches = BranchService(self.backend, self.registry)
+        self.target = TargetStateService(self.backend, self.registry)
         self._agent = None
+        self._proposals = None
         return self.registry
+
+    # ------------------------------------------------------------ branch
+    def branch(self) -> str:
+        """The branch this request reads and writes (set from the session before the request)."""
+        return current_branch()
+
+    def on_branch(self) -> bool:
+        return current_branch() != MAIN
+
+    def branch_options(self) -> list[dict[str, str]]:
+        """`main` and the open branches, for the header selector."""
+        opts = [{"value": MAIN, "label": "main"}]
+        for b in self.branches.open():
+            opts.append({"value": b.branch_id, "label": f"{b.name} ({b.changes})"})
+        return opts
+
+    def work_package_options(self) -> list[dict[str, str]]:
+        return [
+            {"value": w.element_id, "label": f"{w.name} [{w.element_id}]"}
+            for w in self.target.work_packages()
+        ]
 
     def base_url(self) -> str:
         """The URL the app is reached at, for links inside exported files; empty when unknown."""

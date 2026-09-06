@@ -67,6 +67,13 @@ relationship type the metamodel allows between them; and the proposal names a
 work package. Anything less is listed back to the architect as the minimum to
 add, element by element, and nothing is applied.
 
+**The architect stays in charge.** The change-set preview is an editable
+merge log: every proposed element and relationship has an include tick, its
+fields can be corrected in place, and rows can be added by hand for what the
+agent missed or when no model is available. The same page therefore works
+without an agent at all: paste nothing, add the rows, apply. What is not
+ticked is not written.
+
 **What Apply writes.** New elements as `proposed` with their target state
 and the work package; linked elements untouched unless the proposal changes
 their target state or note; relationships as declared; all on the branch.
@@ -93,12 +100,16 @@ PDF, Word and image sources (a later connector); wiki and document-system
 connectors through a tool protocol (`PLAT5`); automatic merge; proposals that
 change the metamodel; extraction of diagrams from images.
 
+## Delivered
+
+Built on 2026-09-06 on `main`: the Proposal Template; the parser of its tables (Markdown and CSV) and of pasted text; matching by identifier, exact name and near names (flagged, never linked silently); resolution of relationships against the metamodel; the pushback rule; the stub and hosted readers (the hosted one submits through a `submit_proposal` tool after reading the repository with the Ask tools); the Propose page with the editable merge log (include ticks, editable cells, rows added by hand, re-check) and Apply to branch (a new branch or an open one); the proposal kept with the branch; tests in `tests/test_proposal.py`.
+
 ## Approvals
 
 | Gate | Decision | By | When | What was shown |
 | ---- | -------- | -- | ---- | -------------- |
 | Direction | Approved | The product owner | 2026-09-05, in the conversation | The request: a Propose module after Ask; documents, text and links in; a branch out; the agent links existing items and adopts new ones; pushback with the minimum needed; a downloadable template |
-| Understanding | **Pending** | The product owner | — | To be shown: this document, the Proposal Template draft, the pushback rule, `DOBJ3.6`, `ASVC9`, `ACMP10`; open question 14 |
+| Understanding | Approved with one addition | The product owner | 2026-09-05, in the conversation | This document, the Proposal Template draft and the pushback rule; the addition: the preview is an editable merge log with include ticks and manual rows, usable without the agent |
 | Design | N/A — Depth 1; the design section above is the design | — | — | — |
 
 ## Open questions

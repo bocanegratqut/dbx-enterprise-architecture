@@ -9,6 +9,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 
+from ea.services.target import NOT_REAL, TARGET_STYLE
 from ea.views.model import LAYER_TITLES, View, ViewNode, layer_rank
 
 # draw.io ArchiMate 3 fill colours per layer (from the ArchiMate 3 sidebar).
@@ -74,32 +75,65 @@ SPECIAL_FILL = {"Location": "#efd1e4", "Plateau": "#E0FFE0", "Gap": "#E0FFE0"}
 NODE_W, NODE_H, GAP_X, GAP_Y, COLS, LANE_HEADER, LANE_GAP = 170, 60, 30, 30, 5, 28, 30
 
 
-def node_style(n: ViewNode) -> str:
+def state_style(n: ViewNode) -> str:
+    """The style fragment a target state adds to a shape: coloured stroke, dashed when not (yet) real."""
+    out = ""
+    st = TARGET_STYLE.get(n.target_state)
+    if st and n.target_state not in ("undecided", "keep"):
+        out += f"strokeColor={st['hex']};strokeWidth=2;"
+        if n.target_state == "decommission":
+            out += "fontColor=#c92a2a;"
+    if n.current_state in NOT_REAL or n.target_state in ("new", "merge"):
+        out += "dashed=1;dashPattern=6 3;"
+    return out
+
+
+def node_style(n: ViewNode, marked: bool = False) -> str:
     fill = SPECIAL_FILL.get(n.archimate) or LAYER_FILL.get(n.layer, LAYER_FILL["other"])
     if n.archimate == "Value":
-        return f"ellipse;html=1;whiteSpace=wrap;fillColor={fill};"
+        return f"ellipse;html=1;whiteSpace=wrap;fillColor={fill};" + (state_style(n) if marked else "")
     frag = STENCIL.get(n.archimate)
     if frag is None:
-        return f"rounded=1;whiteSpace=wrap;html=1;fillColor={fill};"
-    style = f"{_AM}{frag}fillColor={fill};"
+        style = f"rounded=1;whiteSpace=wrap;html=1;fillColor={fill};"
+    else:
+        style = f"{_AM}{frag}fillColor={fill};"
     if n.focus:
         style += "strokeWidth=3;"
+    if marked:
+        style += state_style(n)
     return style
+
+
+def _label(n: ViewNode, marked: bool) -> str:
+    if not marked:
+        return n.name
+    st = TARGET_STYLE.get(n.target_state)
+    if n.target_state == "decommission":
+        return f"<s>{n.name}</s>"
+    if st and n.target_state not in ("undecided", "keep"):
+        return f"{st['glyph']} {n.name}"
+    return n.name
 
 
 def _cell(container: ET.Element, cid: str, **attrs: str) -> ET.Element:
     return ET.SubElement(container, "mxCell", id=cid, **attrs)
 
 
-def to_drawio(view: View, base_url: str = "", positions: dict[str, dict[str, float]] | None = None) -> str:
+def to_drawio(
+    view: View,
+    base_url: str = "",
+    positions: dict[str, dict[str, float]] | None = None,
+    marked: bool = False,
+) -> str:
     """The view as an uncompressed `.drawio` file.
 
     Without positions: one swimlane per layer, shapes in a grid. With positions (from the
     browser, where the reader may have moved shapes): every shape exactly where it was, and
-    the layer boxes as dashed background groupings sized to their shapes.
+    the layer boxes as dashed background groupings sized to their shapes. With `marked`,
+    shapes carry their target state the way the Mermaid rendering does.
     """
     if positions and sum(1 for n in view.nodes if n.id in positions) >= max(1, len(view.nodes) // 2):
-        return _to_drawio_positioned(view, base_url, positions)
+        return _to_drawio_positioned(view, base_url, positions, marked)
     mxfile, root = _document(view)
 
     layers = sorted(view.layers(), key=layer_rank)
@@ -127,8 +161,8 @@ def to_drawio(view: View, base_url: str = "", positions: dict[str, dict[str, flo
         )
         for i, n in enumerate(nodes):
             col, row = i % COLS, i // COLS
-            obj = _object(root, n, base_url)
-            cell = ET.SubElement(obj, "mxCell", style=node_style(n), vertex="1", parent=lane_id)
+            obj = _object(root, n, base_url, marked)
+            cell = ET.SubElement(obj, "mxCell", style=node_style(n, marked), vertex="1", parent=lane_id)
             ET.SubElement(
                 cell,
                 "mxGeometry",
@@ -140,7 +174,7 @@ def to_drawio(view: View, base_url: str = "", positions: dict[str, dict[str, flo
             )
         y += lane_h + LANE_GAP
 
-    _edges(root, view)
+    _edges(root, view, marked)
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(mxfile, encoding="unicode")
 
 
@@ -176,16 +210,18 @@ def _document(view: View) -> tuple[ET.Element, ET.Element]:
     return mxfile, root
 
 
-def _object(root: ET.Element, n: ViewNode, base_url: str) -> ET.Element:
+def _object(root: ET.Element, n: ViewNode, base_url: str, marked: bool = False) -> ET.Element:
     """The linking contract: every shape carries its element identifier and a link to its page."""
     obj = ET.SubElement(
         root,
         "object",
-        label=n.name,
+        label=_label(n, marked),
         ea_id=n.id,
         ea_type=n.type_id,
         ea_type_name=n.type_name,
         ea_stereotype=n.stereotype,
+        ea_current_state=n.current_state,
+        ea_target_state=n.target_state,
         id=n.id,
     )
     if base_url:
@@ -193,16 +229,22 @@ def _object(root: ET.Element, n: ViewNode, base_url: str) -> ET.Element:
     return obj
 
 
-def _edges(root: ET.Element, view: View) -> None:
+def _edges(root: ET.Element, view: View, marked: bool = False) -> None:
     ids = set(view.ids())
     for i, e in enumerate(view.edges):
         if e.src not in ids or e.dst not in ids:
             continue
+        style = "edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;strokeColor=#555555;fontSize=10;"
+        st = TARGET_STYLE.get(e.target_state)
+        if marked and st and e.target_state not in ("undecided", "keep"):
+            style += f"strokeColor={st['hex']};strokeWidth=2;"
+            if e.target_state in ("new", "merge"):
+                style += "dashed=1;"
         cell = _cell(
             root,
             f"edge_{i}",
             value=e.label,
-            style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;strokeColor=#555555;fontSize=10;",
+            style=style,
             edge="1",
             parent="1",
             source=e.src,
@@ -211,7 +253,9 @@ def _edges(root: ET.Element, view: View) -> None:
         ET.SubElement(cell, "mxGeometry", relative="1", **{"as": "geometry"})
 
 
-def _to_drawio_positioned(view: View, base_url: str, positions: dict[str, dict[str, float]]) -> str:
+def _to_drawio_positioned(
+    view: View, base_url: str, positions: dict[str, dict[str, float]], marked: bool = False
+) -> str:
     mxfile, root = _document(view)
     margin = 40
     xs = [p["x"] - p.get("w", NODE_W) / 2 for p in positions.values()]
@@ -259,8 +303,8 @@ def _to_drawio_positioned(view: View, base_url: str, positions: dict[str, dict[s
         )
     for n in view.nodes:
         x, y, w, h = box(n)
-        obj = _object(root, n, base_url)
-        cell = ET.SubElement(obj, "mxCell", style=node_style(n), vertex="1", parent="1")
+        obj = _object(root, n, base_url, marked)
+        cell = ET.SubElement(obj, "mxCell", style=node_style(n, marked), vertex="1", parent="1")
         ET.SubElement(
             cell,
             "mxGeometry",
@@ -270,5 +314,5 @@ def _to_drawio_positioned(view: View, base_url: str, positions: dict[str, dict[s
             height=str(round(h)),
             **{"as": "geometry"},
         )
-    _edges(root, view)
+    _edges(root, view, marked)
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(mxfile, encoding="unicode")

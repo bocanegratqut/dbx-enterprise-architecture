@@ -117,7 +117,7 @@ def kv_table(rows: list[tuple[str, Any]]) -> dmc.Table:
                     dmc.TableTr(
                         [
                             dmc.TableTd(dmc.Text(k, size="sm", c="dimmed")),
-                            dmc.TableTd(dmc.Text(_fmt(v), size="sm")),
+                            dmc.TableTd(v if _is_component(v) else dmc.Text(_fmt(v), size="sm")),
                         ]
                     )
                     for k, v in rows
@@ -127,6 +127,10 @@ def kv_table(rows: list[tuple[str, Any]]) -> dmc.Table:
         withRowBorders=False,
         verticalSpacing="xs",
     )
+
+
+def _is_component(v: Any) -> bool:
+    return hasattr(v, "to_plotly_json")
 
 
 def _fmt(v: Any) -> str:

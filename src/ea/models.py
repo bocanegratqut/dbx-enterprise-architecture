@@ -138,6 +138,19 @@ class Link:
     sort_order: int = 0
 
 
+# What is true of an artefact today, and what the organisation intends for it. Fixed and small
+# on purpose: every framework needs them, and the views, the importer and the agent read them.
+CURRENT_STATES = ["proposed", "planned", "in_implementation", "live", "retired", "non_existent"]
+TARGET_STATES = ["undecided", "keep", "new", "change", "decommission", "merge"]
+
+
+def _check_states(what: str, current_state: str, target_state: str) -> None:
+    if current_state not in CURRENT_STATES:
+        raise ValueError(f"{what}: current_state must be one of {CURRENT_STATES}")
+    if target_state not in TARGET_STATES:
+        raise ValueError(f"{what}: target_state must be one of {TARGET_STATES}")
+
+
 @dataclass
 class Element:
     element_id: str
@@ -158,10 +171,17 @@ class Element:
     updated_at: datetime | None = None
     updated_by: str = ""
     links: list[Link] = field(default_factory=list)
+    current_state: str = "live"
+    target_state: str = "undecided"
+    target_work_package: str = ""
+    target_note: str = ""
 
     def __post_init__(self) -> None:
         if self.status not in ELEMENT_STATUSES:
             raise ValueError(f"element {self.element_id}: status must be one of {ELEMENT_STATUSES}")
+        self.current_state = self.current_state or "live"
+        self.target_state = self.target_state or "undecided"
+        _check_states(f"element {self.element_id}", self.current_state, self.target_state)
 
 
 @dataclass
@@ -181,6 +201,94 @@ class Relationship:
     created_by: str = ""
     updated_at: datetime | None = None
     updated_by: str = ""
+    current_state: str = "live"
+    target_state: str = "undecided"
+    target_work_package: str = ""
+    target_note: str = ""
+
+    def __post_init__(self) -> None:
+        self.current_state = self.current_state or "live"
+        self.target_state = self.target_state or "undecided"
+        _check_states(f"relationship {self.relationship_id}", self.current_state, self.target_state)
+
+
+BRANCH_STATUSES = ["open", "merged", "abandoned"]
+
+
+@dataclass
+class Branch:
+    branch_id: str
+    name: str
+    description: str = ""
+    work_package: str = ""
+    status: str = "open"
+    created_by: str = ""
+    created_at: datetime | None = None
+    closed_by: str = ""
+    closed_at: datetime | None = None
+    changes: int = 0  # rows on the overlay, filled by list_branches
+
+
+@dataclass
+class ChangeItem:
+    """One row of a branch's change set against `main`."""
+
+    kind: str  # element | relationship
+    entity_id: str
+    label: str
+    change: str  # added | changed | deleted
+    base_version: int
+    main_version: int | None
+    conflict: bool
+    before: dict[str, Any] | None
+    after: dict[str, Any] | None
+    fields_changed: list[str] = field(default_factory=list)
+
+    @property
+    def key(self) -> str:
+        return f"{self.kind}:{self.entity_id}"
+
+
+@dataclass
+class ChangeSet:
+    branch: Branch
+    items: list[ChangeItem] = field(default_factory=list)
+
+    @property
+    def conflicts(self) -> list[ChangeItem]:
+        return [i for i in self.items if i.conflict]
+
+    def counts(self) -> dict[str, int]:
+        out = {"added": 0, "changed": 0, "deleted": 0, "conflicts": 0}
+        for i in self.items:
+            out[i.change] += 1
+            if i.conflict:
+                out["conflicts"] += 1
+        return out
+
+
+@dataclass
+class MergeResult:
+    branch_id: str
+    applied: list[str] = field(default_factory=list)  # item keys written to main
+    dropped: list[str] = field(default_factory=list)  # conflicts resolved for main: removed from the branch
+    remaining: int = 0  # rows still on the branch
+    closed: bool = False
+
+
+@dataclass
+class Proposal:
+    """What an architect handed in, what was derived from it, and where it went."""
+
+    proposal_id: str
+    branch_id: str
+    title: str
+    sources: list[dict[str, Any]] = field(default_factory=list)  # {kind: text|file|link, name, chars}
+    result: dict[str, Any] = field(default_factory=dict)  # the change set as applied
+    pushback: list[str] = field(default_factory=list)
+    status: str = "applied"  # analysed | applied
+    created_by: str = ""
+    created_at: datetime | None = None
 
 
 @dataclass
