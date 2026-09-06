@@ -21,30 +21,48 @@ loaded first with the curriculum slice of the institution's content. The
 business case that started it and its review are held privately by the product
 owner; [`reference/`](./reference/README.md) says what was derived from them.
 
+## How to read this document
+
+```mermaid
+flowchart LR
+  %% legend
+  n0[["⇉ «Value Stream» a stage of how value is delivered [VS#]"]]:::strategy
+  n1(["⬭ «Business Service» what the business offers [BSVC#]"]):::business
+  n2["⚉ «Business Role» what they are allowed to be [ROLE#]"]:::business
+  n3["▦ «Data Object» what is stored [DOBJ#]"]:::application
+  n4["⊞ «Application Component» a piece of software [ACMP#]"]:::application
+  n5["⬒ «Node» where it runs [NODE#]"]:::technology
+
+  classDef strategy fill:#f5deaa,stroke:#c8a24a,color:#333
+  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
+```
+
 ## The model at a glance
 
 ```mermaid
 flowchart TB
   subgraph S["1 Strategy"]
-    vs[["⇉ «Value Stream» From design to governed architecture knowledge [VS1]"]]:::strategy
+    vs[["⇉ From design to governed architecture knowledge [VS1]"]]:::strategy
   end
   subgraph B["2 Business"]
-    gov(["⚙ «Business Service» Governed change [BSVC2]"]):::business
-    know(["⚙ «Business Service» Architecture knowledge [BSVC1]"]):::business
-    arch["◍ «Business Role» Architect [ROLE2]"]:::business
-    rev["◍ «Business Role» Reviewer [ROLE3]"]:::business
+    gov(["⬭ Governed change [BSVC2]"]):::business
+    know(["⬭ Architecture knowledge [BSVC1]"]):::business
+    arch["⚉ Architect [ROLE2]"]:::business
+    rev["⚉ Reviewer [ROLE3]"]:::business
   end
   subgraph I["3 Information"]
-    el["▤ «Data Object» Element [DOBJ2.1]"]:::application
-    br["▤ «Data Object» Branch [DOBJ2.5]"]:::application
+    el["▦ Element [DOBJ2.1]"]:::application
+    br["▦ Branch [DOBJ2.5]"]:::application
   end
   subgraph A["4 Application"]
-    ui["▭ «Application Component» Web application [ACMP6]"]:::application
-    store["▭ «Application Component» Graph store [ACMP2]"]:::application
+    ui["⊞ Web application [ACMP6]"]:::application
+    store["⊞ Graph store [ACMP2]"]:::application
   end
   subgraph T["5 Technology"]
-    py["⬡ «System Software» Python process [NODE1.1]"]:::technology
-    duck["⬡ «System Software» DuckDB engine [NODE1.2]"]:::technology
+    py["⬒ Python process [NODE1.1]"]:::technology
+    duck["⬒ DuckDB engine [NODE1.2]"]:::technology
   end
   vs -->|realized by| gov
   vs -->|realized by| know
@@ -85,9 +103,9 @@ is a stated fact — `Out of scope`, `External`, or a named `Gap` — not a sile
 
 | Depth | The subject is | You get | Gates |
 | ----- | -------------- | ------- | ----- |
-| **1 — Application** | one app or tool | a light strategy layer — goals and principles, enough to judge a change against | Understanding, and Design if you ask |
-| **2 — Organization** | a company, department, or service line | the canvases, and the operating model derived from them | Direction, Understanding, Design |
-| **3 — Enterprise** | several business lines | the above, plus each line modeled as a domain with its own charter | The three, plus each affected domain's owner on a contract change |
+| **1 — Application** | one app or tool | a light strategy layer — goals and principles, enough to judge a change against | Understanding |
+| **2 — Organization** | a company, department, or service line | the canvases, and the operating model derived from them | Direction and Understanding |
+| **3 — Enterprise** | several business lines | the above, plus each line modeled as a domain with its own charter | Both, plus each affected domain's owner on a contract change |
 
 Depth is about the subject, not the effort. The repository *manages* an
 enterprise model; it is itself one application, so it is modeled at Depth 1.

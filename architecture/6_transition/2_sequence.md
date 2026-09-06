@@ -7,6 +7,16 @@ _[← Roadmap](./README.md) · [Target state](./1_target-state.md)_
 **Direction** gate with the target state; every step still enters the change
 process and stops at its own Understanding before it is built.
 
+## How to read this document
+
+```mermaid
+flowchart LR
+  %% legend
+  n0[["≡ «Plateau» a state the architecture reaches [PLAT#]"]]:::implementation
+
+  classDef implementation fill:#ffd6d6,stroke:#d99b9b,color:#333
+```
+
 ## The order of the steps
 
 ```mermaid
@@ -43,11 +53,11 @@ flowchart LR
   s2["2 — Databricks"]:::implementation
   s3["3 — provenance and feeds"]:::implementation
   s5["5 — semantic front doors"]:::implementation
-  p1["▭ «Plateau» Local PoC on DuckDB [PLAT1]"]:::implementation
-  p2["▭ «Plateau» Same application on Databricks [PLAT2]"]:::implementation
-  p3["▭ «Plateau» Real content with provenance [PLAT3]"]:::implementation
-  p4["▭ «Plateau» Governed change [PLAT4]"]:::implementation
-  p5["▭ «Plateau» Semantic front doors [PLAT5]"]:::implementation
+  p1["≡ Local PoC on DuckDB [PLAT1]"]:::implementation
+  p2["≡ Same application on Databricks [PLAT2]"]:::implementation
+  p3["≡ Real content with provenance [PLAT3]"]:::implementation
+  p4["≡ Governed change [PLAT4]"]:::implementation
+  p5["≡ Semantic front doors [PLAT5]"]:::implementation
   s1g -->|reaches on DuckDB| p1
   s1g -->|reaches on DuckDB| p4
   s2 -.->|reaches| p2

@@ -8,6 +8,17 @@ content enters, is curated, reviewed and answered from. At Depth 1 this layer
 is about the application's own users and its own processes; the enterprise's
 business architecture is content *inside* the repository, not this model.
 
+## How to read this document
+
+```mermaid
+flowchart LR
+  %% legend
+  n0["⚉ «Business Role» what they are allowed to be [ROLE#]"]:::business
+  n1(["⬭ «Business Service» what the business offers [BSVC#]"]):::business
+
+  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
+```
+
 ## Analysis order
 
 | #   | Document | Elements | Question it answers |
@@ -25,16 +36,16 @@ that realise it.
 ```mermaid
 flowchart LR
   subgraph ROLES["Roles"]
-    admin["◍ «Business Role» Admin [ROLE1]"]:::business
-    arch["◍ «Business Role» Architect [ROLE2]"]:::business
-    rev["◍ «Business Role» Reviewer [ROLE3]"]:::business
-    reader["◍ «Business Role» Reader [ROLE4]"]:::business
-    agent["◍ «Business Role» Agent [ROLE5]"]:::ai
+    admin["⚉ Admin [ROLE1]"]:::business
+    arch["⚉ Architect [ROLE2]"]:::business
+    rev["⚉ Reviewer [ROLE3]"]:::business
+    reader["⚉ Reader [ROLE4]"]:::business
+    agent["⚉ Agent [ROLE5]"]:::ai
   end
   subgraph SVC["Business services"]
-    know(["⚙ «Business Service» Architecture knowledge [BSVC1]"]):::business
-    gov(["⚙ «Business Service» Governed change [BSVC2]"]):::business
-    meta(["⚙ «Business Service» Metamodel stewardship [BSVC3]"]):::business
+    know(["⬭ Architecture knowledge [BSVC1]"]):::business
+    gov(["⬭ Governed change [BSVC2]"]):::business
+    meta(["⬭ Metamodel stewardship [BSVC3]"]):::business
   end
   reader --> know
   agent --> know

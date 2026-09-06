@@ -114,4 +114,4 @@ Built on 2026-09-06 on `main`: the Proposal Template; the parser of its tables (
 
 ## Open questions
 
-Question 14 in [open-questions.md](./open-questions.md).
+Question 14 in [open-questions.md](./8_two-gates-and-readable-views.md).

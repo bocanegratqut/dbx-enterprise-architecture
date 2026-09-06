@@ -111,4 +111,4 @@ architects will bring diagrams ever be worth testing.
 
 ## Open questions
 
-Questions 9 and 10 in [open-questions.md](./open-questions.md).
+Questions 9 and 10 in [open-questions.md](./8_two-gates-and-readable-views.md).

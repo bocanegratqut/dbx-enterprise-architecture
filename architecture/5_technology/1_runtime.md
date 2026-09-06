@@ -6,18 +6,32 @@ _[← Technology layer](./README.md) · [EA home](../README.md)_
 a local process over a DuckDB file. Validated at the **Understanding** gate.
 The Databricks rows are **Pending** (plateau `PLAT2`) and drawn dashed.
 
-## The local runtime
+## How to read this document
+
+```mermaid
+flowchart LR
+  %% legend
+  n0["⬒ «Node» where it runs [NODE#]"]:::technology
+  n1(["⬯ «Technology Service» what the runtime offers [TSVC#]"]):::technology
+  n2["⊞ «Application Component» a piece of software [ACMP#]"]:::application
+  n3[/"⎔ «Artifact» a file the build produces or reads [ART#]"/]:::technology
+
+  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+```
+
+## Nodes and system software
 
 ```mermaid
 flowchart TB
-  subgraph WS["⬒ «Node» Workstation [NODE1]"]
-    py["⬡ «System Software» Python process [NODE1.1]"]:::technology
-    duck["⬡ «System Software» DuckDB engine [NODE1.2]"]:::technology
-    browser["⬡ «System Software» Browser [NODE1.3]"]:::technology
+  subgraph WS["⬒ Workstation [NODE1]"]
+    py["⬒ Python process [NODE1.1]"]:::technology
+    duck["⬒ DuckDB engine [NODE1.2]"]:::technology
+    browser["⬒ Browser [NODE1.3]"]:::technology
   end
-  web(["⚙ «Technology Service» Web serving [TSVC1]"]):::technology
-  sql(["⚙ «Technology Service» Embedded SQL store [TSVC2]"]):::technology
-  render(["⚙ «Technology Service» In-browser rendering [TSVC3]"]):::technology
+  web(["⬯ Web serving [TSVC1]"]):::technology
+  sql(["⬯ Embedded SQL store [TSVC2]"]):::technology
+  render(["⬯ In-browser rendering [TSVC3]"]):::technology
   py -->|provides| web
   duck -->|provides| sql
   browser -->|provides| render
@@ -27,40 +41,26 @@ flowchart TB
   classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
 ```
 
-## Artifacts and where they live
+| ID | Node | Runs | State |
+| -- | ---- | ---- | ----- |
+| `NODE1` | **Workstation** — the developer's or architect's machine where the PoC runs (`make run`) | Everything below | Running |
+| `NODE1.1` | **Python process** — one Python 3.11 process: Flask and Dash serve the pages and callbacks; gunicorn (one worker, four threads) in production mode, the Dash development server locally; the same process hosts the agent and the importer | `app.py`, `src/ea/` | Running |
+| `NODE1.2` | **DuckDB engine** — the embedded analytical engine, in-process, one writer per file; recursive queries for the traversals | `src/ea/backend/duckdb_backend.py` | Running |
+| `NODE1.3` | **Browser** — where the pages render, the diagrams are drawn and the graph panel is laid out; nothing is fetched from the internet at run time (icons, Mermaid and Cytoscape are bundled) | `assets/` | Running |
+| `NODE2` | **Databricks workspace** — Databricks Apps hosting the same process, a SQL warehouse over Delta tables in a Unity Catalog schema, workspace identity forwarded as headers | `app.yaml` exists; the backend does not | **Pending — plateau `PLAT2`** |
+
+## Technology services
 
 ```mermaid
 flowchart LR
-  file[("▤ «Artifact» Repository file [ART1]")]:::technology
-  pack[("▤ «Artifact» Metamodel pack [ART2]")]:::technology
-  csv[("▤ «Artifact» Exchange files [ART3]")]:::technology
-  code[("▤ «Artifact» Source repository [ART4]")]:::technology
-  assets[("▤ «Artifact» Bundled assets [ART5]")]:::technology
-  duck["⬡ «System Software» DuckDB engine [NODE1.2]"]:::technology
-  py["⬡ «System Software» Python process [NODE1.1]"]:::technology
-  browser["⬡ «System Software» Browser [NODE1.3]"]:::technology
-  duck -->|holds| file
-  py -->|loads once| pack
-  py -->|reads| csv
-  code -->|deployed as| py
-  py -->|serves| assets
-  assets -->|run in| browser
-
-  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
-```
-
-## What the application takes from the runtime
-
-```mermaid
-flowchart LR
-  web(["⚙ «Technology Service» Web serving [TSVC1]"]):::technology
-  sql(["⚙ «Technology Service» Embedded SQL store [TSVC2]"]):::technology
-  render(["⚙ «Technology Service» In-browser rendering [TSVC3]"]):::technology
-  ui["▭ «Application Component» Web application [ACMP6]"]:::application
-  store["▭ «Application Component» DuckDB backend [ACMP2.1]"]:::application
-  cli["▭ «Application Component» Command line [ACMP7]"]:::application
-  views["▭ «Application Component» View generator [ACMP8]"]:::application
-  dbx["⬒ «Node» Databricks workspace [NODE2]"]:::technology
+  web(["⬯ Web serving [TSVC1]"]):::technology
+  sql(["⬯ Embedded SQL store [TSVC2]"]):::technology
+  render(["⬯ In-browser rendering [TSVC3]"]):::technology
+  ui["⊞ Web application [ACMP6]"]:::application
+  store["⊞ DuckDB backend [ACMP2.1]"]:::application
+  cli["⊞ Command line [ACMP7]"]:::application
+  views["⊞ View generator [ACMP8]"]:::application
+  dbx["⬒ Databricks workspace [NODE2]"]:::technology
   ui -->|uses| web
   ui -->|uses| render
   views -->|drawn by| render
@@ -73,18 +73,6 @@ flowchart LR
   classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
 ```
 
-## Nodes and system software
-
-| ID | Node | Runs | State |
-| -- | ---- | ---- | ----- |
-| `NODE1` | **Workstation** — the developer's or architect's machine where the PoC runs (`make run`) | Everything below | Running |
-| `NODE1.1` | **Python process** — one Python 3.11 process: Flask and Dash serve the pages and callbacks; gunicorn (one worker, four threads) in production mode, the Dash development server locally; the same process hosts the agent and the importer | `app.py`, `src/ea/` | Running |
-| `NODE1.2` | **DuckDB engine** — the embedded analytical engine, in-process, one writer per file; recursive queries for the traversals | `src/ea/backend/duckdb_backend.py` | Running |
-| `NODE1.3` | **Browser** — where the pages render, the diagrams are drawn and the graph panel is laid out; nothing is fetched from the internet at run time (icons, Mermaid and Cytoscape are bundled) | `assets/` | Running |
-| `NODE2` | **Databricks workspace** — Databricks Apps hosting the same process, a SQL warehouse over Delta tables in a Unity Catalog schema, workspace identity forwarded as headers | `app.yaml` exists; the backend does not | **Pending — plateau `PLAT2`** |
-
-## Technology services
-
 | ID | Service | Provided by | Used by |
 | -- | ------- | ----------- | ------- |
 | `TSVC1` | **Web serving** — HTTP on `0.0.0.0` and the port the platform names (`DATABRICKS_APP_PORT`, `PORT`, or 8050); a signed session cookie carries the reader's branch and, locally, the debug persona | `NODE1.1` | `ACMP6` |
@@ -92,6 +80,26 @@ flowchart LR
 | `TSVC3` | **In-browser rendering** — Mermaid renders the generated views, Cytoscape lays out the graph panel, AG Grid draws the tables; the arrange-and-export script runs here | `NODE1.3` | `ACMP6`, `ACMP8` |
 
 ## Artifacts
+
+```mermaid
+flowchart LR
+  file[("⎔ Repository file [ART1]")]:::technology
+  pack[("⎔ Metamodel pack [ART2]")]:::technology
+  csv[("⎔ Exchange files [ART3]")]:::technology
+  code[("⎔ Source repository [ART4]")]:::technology
+  assets[("⎔ Bundled assets [ART5]")]:::technology
+  duck["⬒ DuckDB engine [NODE1.2]"]:::technology
+  py["⬒ Python process [NODE1.1]"]:::technology
+  browser["⬒ Browser [NODE1.3]"]:::technology
+  duck -->|holds| file
+  py -->|loads once| pack
+  py -->|reads| csv
+  code -->|deployed as| py
+  py -->|serves| assets
+  assets -->|run in| browser
+
+  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
+```
 
 | ID | Artifact | Path | Notes |
 | -- | -------- | ---- | ----- |

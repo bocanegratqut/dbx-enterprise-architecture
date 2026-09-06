@@ -12,18 +12,33 @@ architect (see [scope/1_curriculum-poc.md](../scope/1_curriculum-poc.md)).
 **Source:** the owner's business case of 2026-09-05 and its review, both held
 privately by the product owner (see [reference/](../reference/README.md)).
 
-## Who pressures what
+## How to read this document
 
 ```mermaid
 flowchart LR
-  stk1(["◍ «Stakeholder» Product owner [STK1]"]):::motivation
-  stk2(["◍ «Stakeholder» Information architect [STK2]"]):::motivation
-  stk3(["◍ «Stakeholder» Solution architects [STK3]"]):::motivation
-  stk5(["◍ «Stakeholder» Adopting organisation [STK5]"]):::motivation
-  drv1{{"✳ «Driver» EA is a data-integration problem [DRV1]"}}:::motivation
-  drv2{{"✳ «Driver» Agents need a queryable model [DRV2]"}}:::motivation
-  drv3{{"✳ «Driver» Information elements feed data and analytics processes [DRV3]"}}:::motivation
-  drv4{{"✳ «Driver» Openness [DRV4]"}}:::motivation
+  %% legend
+  n0(["◍ «Stakeholder» whose interests are at stake [STK#]"]):::motivation
+  n1{{"✳ «Driver» what presses on them [DRV#]"}}:::motivation
+  n2>"⌕ «Assessment» what is true today [ASM#]"]:::motivation
+  n3("◎ «Goal» what must become true [G#]"):::motivation
+  n4[/"⚑ «Principle» what every change is tested against [P#]"/]:::motivation
+  n5[["◉ «Outcome» how we would know [OUT#]"]]:::motivation
+
+  classDef motivation fill:#e6d6f5,stroke:#8e63c8,color:#333
+```
+
+## Stakeholders
+
+```mermaid
+flowchart LR
+  stk1(["◍ Product owner [STK1]"]):::motivation
+  stk2(["◍ Information architect [STK2]"]):::motivation
+  stk3(["◍ Solution architects [STK3]"]):::motivation
+  stk5(["◍ Adopting organisation [STK5]"]):::motivation
+  drv1{{"✳ EA is a data-integration problem [DRV1]"}}:::motivation
+  drv2{{"✳ Agents need a queryable model [DRV2]"}}:::motivation
+  drv3{{"✳ Information elements feed data and analytics processes [DRV3]"}}:::motivation
+  drv4{{"✳ Openness [DRV4]"}}:::motivation
   stk1 -->|concerned with| drv1
   stk2 -->|concerned with| drv3
   stk3 -->|concerned with| drv2
@@ -32,23 +47,31 @@ flowchart LR
   classDef motivation fill:#e6d6f5,stroke:#7e57c2,color:#333
 ```
 
-## What the drivers and assessments ask for
+| ID | Stakeholder | Concern |
+| -- | ----------- | ------- |
+| `STK1` | **Product owner** — the university's data and analytics unit, who asked for the repository and approves the gates | Wants an EA repository that is a data product, queryable by people and agents, and a working demonstration within a month |
+| `STK2` | **Information architect** — defines the curriculum scope and validates the information elements | Needs the information/data elements right first, because the data and analytics unit's other processes (glossary, stewardship, lineage) build on them |
+| `STK3` | **Solution architects** — the consumers of the model | Need to query dependencies and impact directly, not through a drawing tool |
+| `STK4` | **IT division's enterprise architecture team** — owner of the institution's metamodel and of the current EA tool today | Expects the metamodel respected and the content not forked silently; decides when the current EA tool can be retired |
+| `STK5` | **Adopting organisation** — any other enterprise that picks the engine up | Needs nothing institution-specific in the code and a way to bring its own metamodel |
+
+## Drivers
 
 ```mermaid
 flowchart LR
-  drv1{{"✳ «Driver» EA is a data-integration problem [DRV1]"}}:::motivation
-  drv2{{"✳ «Driver» Agents need a queryable model [DRV2]"}}:::motivation
-  drv3{{"✳ «Driver» Information elements feed data and analytics processes [DRV3]"}}:::motivation
-  drv4{{"✳ «Driver» Openness [DRV4]"}}:::motivation
-  asm2["⚖ «Assessment» Genie Ontology is not a graph [ASM2]"]:::motivation
-  asm5["⚖ «Assessment» The metamodel changes [ASM5]"]:::motivation
-  asm6["⚖ «Assessment» Content is small and largely draft [ASM6]"]:::motivation
-  asm7["⚖ «Assessment» Architects read diagrams, not graph layouts [ASM7]"]:::motivation
-  g1("◎ «Goal» Query the architecture sustainably [G1]"):::motivation
-  g2("◎ «Goal» Metamodel is configuration [G2]"):::motivation
-  g3("◎ «Goal» One code base, local and Databricks [G3]"):::motivation
-  g4("◎ «Goal» Show a working PoC within a month [G4]"):::motivation
-  g5("◎ «Goal» Reusable by any enterprise [G5]"):::motivation
+  drv1{{"✳ EA is a data-integration problem [DRV1]"}}:::motivation
+  drv2{{"✳ Agents need a queryable model [DRV2]"}}:::motivation
+  drv3{{"✳ Information elements feed data and analytics processes [DRV3]"}}:::motivation
+  drv4{{"✳ Openness [DRV4]"}}:::motivation
+  asm2["⌕ Genie Ontology is not a graph [ASM2]"]:::motivation
+  asm5["⌕ The metamodel changes [ASM5]"]:::motivation
+  asm6["⌕ Content is small and largely draft [ASM6]"]:::motivation
+  asm7["⌕ Architects read diagrams, not graph layouts [ASM7]"]:::motivation
+  g1("◎ Query the architecture sustainably [G1]"):::motivation
+  g2("◎ Metamodel is configuration [G2]"):::motivation
+  g3("◎ One code base, local and Databricks [G3]"):::motivation
+  g4("◎ Show a working PoC within a month [G4]"):::motivation
+  g5("◎ Reusable by any enterprise [G5]"):::motivation
   drv1 --> g1
   drv2 --> g1
   drv3 --> g4
@@ -60,42 +83,6 @@ flowchart LR
 
   classDef motivation fill:#e6d6f5,stroke:#7e57c2,color:#333
 ```
-
-## How the goals are held: principles and outcomes
-
-```mermaid
-flowchart TB
-  g1("◎ «Goal» Query the architecture sustainably [G1]"):::motivation
-  g2("◎ «Goal» Metamodel is configuration [G2]"):::motivation
-  g4("◎ «Goal» Show a working PoC within a month [G4]"):::motivation
-  g5("◎ «Goal» Reusable by any enterprise [G5]"):::motivation
-  p1["▣ «Principle» Metamodel is data, never DDL [P1]"]:::motivation
-  p3["▣ «Principle» Agents draft, people approve [P3]"]:::motivation
-  p5["▣ «Principle» Nothing framework-specific in code [P5]"]:::motivation
-  p8["▣ «Principle» Diagrams are generated views, never the store [P8]"]:::motivation
-  out1("◎ «Outcome» Curriculum model loaded and queried [OUT1]"):::motivation
-  out2("◎ «Outcome» Information architect endorses the approach [OUT2]"):::motivation
-  g1 -->|realized by| out1
-  g4 -->|realized by| out2
-  g2 -->|realized by| p1
-  g5 -->|realized by| p5
-  g1 -->|realized by| p8
-  g1 -.->|constrained by| p3
-
-  classDef motivation fill:#e6d6f5,stroke:#7e57c2,color:#333
-```
-
-## Stakeholders
-
-| ID | Stakeholder | Concern |
-| -- | ----------- | ------- |
-| `STK1` | **Product owner** — the university's data and analytics unit, who asked for the repository and approves the gates | Wants an EA repository that is a data product, queryable by people and agents, and a working demonstration within a month |
-| `STK2` | **Information architect** — defines the curriculum scope and validates the information elements | Needs the information/data elements right first, because the data and analytics unit's other processes (glossary, stewardship, lineage) build on them |
-| `STK3` | **Solution architects** — the consumers of the model | Need to query dependencies and impact directly, not through a drawing tool |
-| `STK4` | **IT division's enterprise architecture team** — owner of the institution's metamodel and of the current EA tool today | Expects the metamodel respected and the content not forked silently; decides when the current EA tool can be retired |
-| `STK5` | **Adopting organisation** — any other enterprise that picks the engine up | Needs nothing institution-specific in the code and a way to bring its own metamodel |
-
-## Drivers
 
 | ID | Driver | Evidence |
 | -- | ------ | -------- |
@@ -117,6 +104,28 @@ flowchart TB
 | `ASM7` | **Architects read diagrams, not graph layouts** — a force-directed graph answers a query but is not an architecture diagram; a hand-drawn diagram that is the store is the current EA tool's problem | Views are generated from the model in an architecture notation; diagram editors are at most an export format (initiative 2) |
 
 ## Goals and outcomes
+
+```mermaid
+flowchart TB
+  g1("◎ Query the architecture sustainably [G1]"):::motivation
+  g2("◎ Metamodel is configuration [G2]"):::motivation
+  g4("◎ Show a working PoC within a month [G4]"):::motivation
+  g5("◎ Reusable by any enterprise [G5]"):::motivation
+  p1["⚑ Metamodel is data, never DDL [P1]"]:::motivation
+  p3["⚑ Agents draft, people approve [P3]"]:::motivation
+  p5["⚑ Nothing framework-specific in code [P5]"]:::motivation
+  p8["⚑ Diagrams are generated views, never the store [P8]"]:::motivation
+  out1("◉ Curriculum model loaded and queried [OUT1]"):::motivation
+  out2("◉ Information architect endorses the approach [OUT2]"):::motivation
+  g1 -->|realized by| out1
+  g4 -->|realized by| out2
+  g2 -->|realized by| p1
+  g5 -->|realized by| p5
+  g1 -->|realized by| p8
+  g1 -.->|constrained by| p3
+
+  classDef motivation fill:#e6d6f5,stroke:#7e57c2,color:#333
+```
 
 | ID | Goal | Measured by |
 | -- | ---- | ----------- |

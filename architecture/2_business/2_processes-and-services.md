@@ -6,16 +6,58 @@ _[← Business layer](./README.md) · [EA home](../README.md)_
 enterprise and the processes that deliver them, as they run since initiative 7
 (2026-09-06). Validated at the **Understanding** gate.
 
-## The governed change process
+## How to read this document
+
+```mermaid
+flowchart LR
+  %% legend
+  n0(["⬭ «Business Service» what the business offers [BSVC#]"]):::business
+  n1["⚙ «Business Process» work with a trigger and an output [BPROC#]"]:::business
+  n2(["⬮ «Application Service» what the software offers [ASVC#]"]):::application
+
+  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+```
+
+## Business services
+
+```mermaid
+flowchart TB
+  know(["⬭ Architecture knowledge [BSVC1]"]):::business
+  gov(["⬭ Governed change [BSVC2]"]):::business
+  meta(["⬭ Metamodel stewardship [BSVC3]"]):::business
+  p1("⚙ Load content from a source [BPROC1]"):::business
+  p2("⚙ Change the model [BPROC2]"):::business
+  p3("⚙ Answer an architecture question [BPROC3]"):::business
+  p4("⚙ Analyse a work package [BPROC4]"):::business
+  p5("⚙ Maintain the metamodel [BPROC5]"):::business
+  p6("⚙ Watch the model's health [BPROC6]"):::business
+  know -->|realized by| p1
+  know -->|realized by| p3
+  know -->|realized by| p4
+  gov -->|realized by| p2
+  gov -->|realized by| p6
+  meta -->|realized by| p5
+
+  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
+```
+
+| ID | Service | Offered to | Delivered by |
+| -- | ------- | ---------- | ------------ |
+| `BSVC1` | **Architecture knowledge** — the enterprise's architecture as a queryable, cited, drawn body of knowledge: what exists, who owns it, what depends on what, what a work package changes | Solution architects, stewards, the data and analytics unit, and any agent | Loading (`BPROC1`), answering (`BPROC3`), analysing (`BPROC4`) |
+| `BSVC2` | **Governed change** — a change to the model is drafted apart from the truth, reviewed by the people who own the types it touches, and lands with a record of who decided what | Architects and stewards | Changing the model (`BPROC2`) and watching its health (`BPROC6`) |
+| `BSVC3` | **Metamodel stewardship** — the enterprise's own framework kept as configuration: types, relationships, attributes, notation, reviewers per type | The enterprise architecture team | Maintaining the metamodel (`BPROC5`) |
+
+## Business processes
 
 ```mermaid
 flowchart LR
   start(["⚡ Design ready"]):::business
-  p21("⚙ «Business Process» Draft on a branch [BPROC2.1]"):::business
-  p22("⚙ «Business Process» Hand in a proposal [BPROC2.2]"):::business
-  p23("⚙ «Business Process» Request a review [BPROC2.3]"):::business
-  p24("⚙ «Business Process» Review a branch [BPROC2.4]"):::business
-  p25("⚙ «Business Process» Merge to main [BPROC2.5]"):::business
+  p21("⚙ Draft on a branch [BPROC2.1]"):::business
+  p22("⚙ Hand in a proposal [BPROC2.2]"):::business
+  p23("⚙ Request a review [BPROC2.3]"):::business
+  p24("⚙ Review a branch [BPROC2.4]"):::business
+  p25("⚙ Merge to main [BPROC2.5]"):::business
   done(["⚡ Main moved"]):::business
   start --> p21
   start --> p22
@@ -28,67 +70,6 @@ flowchart LR
 
   classDef business fill:#fffbb5,stroke:#b8a200,color:#333
 ```
-
-## Services and the processes that deliver them
-
-```mermaid
-flowchart TB
-  know(["⚙ «Business Service» Architecture knowledge [BSVC1]"]):::business
-  gov(["⚙ «Business Service» Governed change [BSVC2]"]):::business
-  meta(["⚙ «Business Service» Metamodel stewardship [BSVC3]"]):::business
-  p1("⚙ «Business Process» Load content from a source [BPROC1]"):::business
-  p2("⚙ «Business Process» Change the model [BPROC2]"):::business
-  p3("⚙ «Business Process» Answer an architecture question [BPROC3]"):::business
-  p4("⚙ «Business Process» Analyse a work package [BPROC4]"):::business
-  p5("⚙ «Business Process» Maintain the metamodel [BPROC5]"):::business
-  p6("⚙ «Business Process» Watch the model's health [BPROC6]"):::business
-  know -->|realized by| p1
-  know -->|realized by| p3
-  know -->|realized by| p4
-  gov -->|realized by| p2
-  gov -->|realized by| p6
-  meta -->|realized by| p5
-
-  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
-```
-
-## Processes and the application services that serve them
-
-```mermaid
-flowchart LR
-  p1("⚙ «Business Process» Load content from a source [BPROC1]"):::business
-  p2("⚙ «Business Process» Change the model [BPROC2]"):::business
-  p3("⚙ «Business Process» Answer an architecture question [BPROC3]"):::business
-  p4("⚙ «Business Process» Analyse a work package [BPROC4]"):::business
-  p6("⚙ «Business Process» Watch the model's health [BPROC6]"):::business
-  ingest(["⚙ «Application Service» CSV ingestion [ASVC3]"]):::application
-  branches(["⚙ «Application Service» Branches and merge [ASVC7]"]):::application
-  propose(["⚙ «Application Service» Propose [ASVC9]"]):::application
-  ask(["⚙ «Application Service» Grounded question answering [ASVC5]"]):::application
-  views(["⚙ «Application Service» Architecture views [ASVC6]"]):::application
-  target(["⚙ «Application Service» Target state [ASVC8]"]):::application
-  health(["⚙ «Application Service» Model health [ASVC10]"]):::application
-  p1 --> ingest
-  p2 --> branches
-  p2 --> propose
-  p3 --> ask
-  p3 --> views
-  p4 --> target
-  p6 --> health
-
-  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
-  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
-```
-
-## Business services
-
-| ID | Service | Offered to | Delivered by |
-| -- | ------- | ---------- | ------------ |
-| `BSVC1` | **Architecture knowledge** — the enterprise's architecture as a queryable, cited, drawn body of knowledge: what exists, who owns it, what depends on what, what a work package changes | Solution architects, stewards, the data and analytics unit, and any agent | Loading (`BPROC1`), answering (`BPROC3`), analysing (`BPROC4`) |
-| `BSVC2` | **Governed change** — a change to the model is drafted apart from the truth, reviewed by the people who own the types it touches, and lands with a record of who decided what | Architects and stewards | Changing the model (`BPROC2`) and watching its health (`BPROC6`) |
-| `BSVC3` | **Metamodel stewardship** — the enterprise's own framework kept as configuration: types, relationships, attributes, notation, reviewers per type | The enterprise architecture team | Maintaining the metamodel (`BPROC5`) |
-
-## Business processes
 
 | ID | Process | Trigger | Steps | Outcome |
 | -- | ------- | ------- | ----- | ------- |
@@ -103,6 +84,34 @@ flowchart LR
 | `BPROC4` | **Analyse a work package** — current state against target state | A work package needs a picture | Pick the work package; read the counts, the matrix and the marked view; edit states on the elements | The organisation sees what the initiative creates, changes and retires |
 | `BPROC5` | **Maintain the metamodel** — the framework as data | The framework owner changes a type, a relationship, an attribute, a notation or a reviewer | Edit in the app; save; export the pack; reload from file | A new pack version, the app reflecting it |
 | `BPROC6` | **Watch the model's health** — freshness and completeness | A weekly look, or before a review | Read the freshness per source and the completeness per type; bulk-edit what is stale or empty; search descriptions for what is wrong | Stale and incomplete content found and fixed |
+
+## Processes and the application services that serve them
+
+```mermaid
+flowchart LR
+  p1("⚙ Load content from a source [BPROC1]"):::business
+  p2("⚙ Change the model [BPROC2]"):::business
+  p3("⚙ Answer an architecture question [BPROC3]"):::business
+  p4("⚙ Analyse a work package [BPROC4]"):::business
+  p6("⚙ Watch the model's health [BPROC6]"):::business
+  ingest(["⬮ CSV ingestion [ASVC3]"]):::application
+  branches(["⬮ Branches and merge [ASVC7]"]):::application
+  propose(["⬮ Propose [ASVC9]"]):::application
+  ask(["⬮ Grounded question answering [ASVC5]"]):::application
+  views(["⬮ Architecture views [ASVC6]"]):::application
+  target(["⬮ Target state [ASVC8]"]):::application
+  health(["⬮ Model health [ASVC10]"]):::application
+  p1 --> ingest
+  p2 --> branches
+  p2 --> propose
+  p3 --> ask
+  p3 --> views
+  p4 --> target
+  p6 --> health
+
+  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+```
 
 ## Relationships
 

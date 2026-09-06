@@ -40,4 +40,4 @@ without a model so the demo works without a key.
 - On Databricks the preferred approach is a Genie-based agent, or whichever
   agent framework the platform offers, that traverses the graph and answers in
   Markdown, with questions, answers and user feedback kept for monitoring and
-  improvement (question 10 in [the open questions](../scope/open-questions.md)).
+  improvement (question 10 in [the open questions](../scope/8_two-gates-and-readable-views.md)).

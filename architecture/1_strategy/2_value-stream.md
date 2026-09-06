@@ -6,7 +6,49 @@ _[← Strategy layer](./README.md) · [EA home](../README.md)_
 written on 2026-09-06 once its stages had processes behind them (initiatives
 1 to 7). Validated at the **Direction** gate with the owner.
 
-## The stream
+## How to read this document
+
+```mermaid
+flowchart LR
+  %% legend
+  n0[["⇉ «Value Stream» a stage of how value is delivered [VS#]"]]:::strategy
+  n1("◎ «Goal» what must become true [G#]"):::motivation
+  n2{{"✳ «Driver» what presses on them [DRV#]"}}:::motivation
+  n3["✦ «Capability» what the subject must be able to do [CAP#]"]:::strategy
+  n4(["⚇ «Business Actor» a person or team that acts [ACT#]"]):::business
+  n5["⚙ «Business Process» work with a trigger and an output [BPROC#]"]:::business
+
+  classDef strategy fill:#f5deaa,stroke:#c8a24a,color:#333
+  classDef motivation fill:#e6d6f5,stroke:#8e63c8,color:#333
+  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
+```
+
+## Capability
+
+```mermaid
+flowchart LR
+  vs[["⇉ From design to governed architecture knowledge [VS1]"]]:::strategy
+  g1("◎ Query the architecture sustainably [G1]"):::motivation
+  drv1{{"✳ EA is a data-integration problem [DRV1]"}}:::motivation
+  cap["✦ Architecture management as a data product [CAP1]"]:::strategy
+  sa["⚇ Solution architect [ACT3]"]:::business
+  st["⚇ Content steward [ACT4]"]:::business
+  drv1 -->|influences| g1
+  g1 -->|realized by| vs
+  cap -->|realized by| vs
+  sa -->|participates in| vs
+  st -->|participates in| vs
+
+  classDef strategy fill:#f5deaa,stroke:#c8a24a,color:#333
+  classDef motivation fill:#e6d6f5,stroke:#7e57c2,color:#333
+  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
+```
+
+| ID | Capability | Realised by |
+| -- | ---------- | ----------- |
+| `CAP1` | **Architecture management as a data product** — the ability to hold the enterprise's architecture as governed, queryable, cited data rather than as drawings | The value stream below, on the repository (`ASVC1` to `ASVC10`) |
+
+## Value stream
 
 ```mermaid
 flowchart LR
@@ -21,6 +63,15 @@ flowchart LR
   classDef strategy fill:#f5deaa,stroke:#c8a24a,color:#333
 ```
 
+| ID | Stage | Value added | Realised by |
+| -- | ----- | ----------- | ----------- |
+| `VS1` | **From design to governed architecture knowledge** — how a fact about the enterprise's architecture enters the model, is made trustworthy, and answers a question | The enterprise can rely on what the model says and act on it | The stages below |
+| `VS1.1` | **Capture** — a fact enters: an export from a source system, or a design page handed in as a proposal | Nothing is retyped; provenance is kept | `BPROC1`, `BPROC2.2` |
+| `VS1.2` | **Curate** — the fact is placed, typed, described and given its states, apart from `main` | The fact is complete and consistent with the metamodel | `BPROC2.1`, `BPROC6` |
+| `VS1.3` | **Review** — the people who own the types the change touches decide | A second person has read every row that will change | `BPROC2.4` |
+| `VS1.4` | **Publish** — the approved rows land on `main`, views are generated from them | One truth, drawn from the same data everywhere | `BPROC2.5` |
+| `VS1.5` | **Answer** — people and agents ask, analyse impact and target state | Decisions are made on cited facts, not on drawings | `BPROC3`, `BPROC4` |
+
 ## Stages and the processes that realise them
 
 ```mermaid
@@ -30,14 +81,14 @@ flowchart TB
   s3[["⇉ Review [VS1.3]"]]:::strategy
   s4[["⇉ Publish [VS1.4]"]]:::strategy
   s5[["⇉ Answer [VS1.5]"]]:::strategy
-  p1("⚙ «Business Process» Load content from a source [BPROC1]"):::business
-  p22("⚙ «Business Process» Hand in a proposal [BPROC2.2]"):::business
-  p21("⚙ «Business Process» Draft on a branch [BPROC2.1]"):::business
-  p6("⚙ «Business Process» Watch the model's health [BPROC6]"):::business
-  p24("⚙ «Business Process» Review a branch [BPROC2.4]"):::business
-  p25("⚙ «Business Process» Merge to main [BPROC2.5]"):::business
-  p3("⚙ «Business Process» Answer an architecture question [BPROC3]"):::business
-  p4("⚙ «Business Process» Analyse a work package [BPROC4]"):::business
+  p1("⚙ Load content from a source [BPROC1]"):::business
+  p22("⚙ Hand in a proposal [BPROC2.2]"):::business
+  p21("⚙ Draft on a branch [BPROC2.1]"):::business
+  p6("⚙ Watch the model's health [BPROC6]"):::business
+  p24("⚙ Review a branch [BPROC2.4]"):::business
+  p25("⚙ Merge to main [BPROC2.5]"):::business
+  p3("⚙ Answer an architecture question [BPROC3]"):::business
+  p4("⚙ Analyse a work package [BPROC4]"):::business
   s1 -->|realized by| p1
   s1 -->|realized by| p22
   s2 -->|realized by| p21
@@ -50,44 +101,6 @@ flowchart TB
   classDef strategy fill:#f5deaa,stroke:#c8a24a,color:#333
   classDef business fill:#fffbb5,stroke:#b8a200,color:#333
 ```
-
-## What the stream serves
-
-```mermaid
-flowchart LR
-  vs[["⇉ «Value Stream» From design to governed architecture knowledge [VS1]"]]:::strategy
-  g1("◎ «Goal» Query the architecture sustainably [G1]"):::motivation
-  drv1{{"✳ «Driver» EA is a data-integration problem [DRV1]"}}:::motivation
-  cap["✦ «Capability» Architecture management as a data product [CAP1]"]:::strategy
-  sa["◍ «Business Actor» Solution architect [ACT3]"]:::business
-  st["◍ «Business Actor» Content steward [ACT4]"]:::business
-  drv1 -->|influences| g1
-  g1 -->|realized by| vs
-  cap -->|realized by| vs
-  sa -->|participates in| vs
-  st -->|participates in| vs
-
-  classDef strategy fill:#f5deaa,stroke:#c8a24a,color:#333
-  classDef motivation fill:#e6d6f5,stroke:#7e57c2,color:#333
-  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
-```
-
-## Capability
-
-| ID | Capability | Realised by |
-| -- | ---------- | ----------- |
-| `CAP1` | **Architecture management as a data product** — the ability to hold the enterprise's architecture as governed, queryable, cited data rather than as drawings | The value stream below, on the repository (`ASVC1` to `ASVC10`) |
-
-## Value stream
-
-| ID | Stage | Value added | Realised by |
-| -- | ----- | ----------- | ----------- |
-| `VS1` | **From design to governed architecture knowledge** — how a fact about the enterprise's architecture enters the model, is made trustworthy, and answers a question | The enterprise can rely on what the model says and act on it | The stages below |
-| `VS1.1` | **Capture** — a fact enters: an export from a source system, or a design page handed in as a proposal | Nothing is retyped; provenance is kept | `BPROC1`, `BPROC2.2` |
-| `VS1.2` | **Curate** — the fact is placed, typed, described and given its states, apart from `main` | The fact is complete and consistent with the metamodel | `BPROC2.1`, `BPROC6` |
-| `VS1.3` | **Review** — the people who own the types the change touches decide | A second person has read every row that will change | `BPROC2.4` |
-| `VS1.4` | **Publish** — the approved rows land on `main`, views are generated from them | One truth, drawn from the same data everywhere | `BPROC2.5` |
-| `VS1.5` | **Answer** — people and agents ask, analyse impact and target state | Decisions are made on cited facts, not on drawings | `BPROC3`, `BPROC4` |
 
 ## Relationships
 

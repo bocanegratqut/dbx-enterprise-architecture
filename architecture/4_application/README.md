@@ -7,6 +7,17 @@ them, and where each component lives in the code. Two documents are enough at
 this size; collaborations, solution design and interface contracts are folded
 into the components document until the component count justifies more.
 
+## How to read this document
+
+```mermaid
+flowchart LR
+  %% legend
+  n0["⊞ «Application Component» a piece of software [ACMP#]"]:::application
+  n1["⊸ «Application Interface» where it is reached [ASVC#]"]:::application
+
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+```
+
 ## Analysis order
 
 | #   | Document | Elements | Question it answers |
@@ -23,16 +34,16 @@ build it.
 
 ```mermaid
 flowchart TB
-  ui["«Application Component» Web application [ACMP6]"]:::application
-  cli["«Application Component» Command line [ACMP7]"]:::application
-  agent["«Application Component» Agent [ACMP5]"]:::application
-  views["«Application Component» View generator [ACMP8]"]:::application
-  svc["«Application Component» Repository and graph services [ACMP3]"]:::application
-  imp["«Application Component» Importer [ACMP4]"]:::application
-  reg["«Application Component» Metamodel registry [ACMP1]"]:::application
-  store["«Application Interface» Graph store [ACMP2]"]:::application
-  duck["«Application Component» DuckDB backend [ACMP2.1]"]:::application
-  dbx["«Application Component» Databricks backend [ACMP2.2]"]:::application
+  ui["⊞ Web application [ACMP6]"]:::application
+  cli["⊞ Command line [ACMP7]"]:::application
+  agent["⊞ Agent [ACMP5]"]:::application
+  views["⊞ View generator [ACMP8]"]:::application
+  svc["⊞ Repository and graph services [ACMP3]"]:::application
+  imp["⊞ Importer [ACMP4]"]:::application
+  reg["⊞ Metamodel registry [ACMP1]"]:::application
+  store["⊸ Graph store [ACMP2]"]:::application
+  duck["⊞ DuckDB backend [ACMP2.1]"]:::application
+  dbx["⊞ Databricks backend [ACMP2.2]"]:::application
 
   ui --> svc
   ui --> imp
@@ -48,8 +59,8 @@ flowchart TB
   imp --> reg
   svc --> store
   imp --> store
-  health["«Application Component» Health and search services [ACMP11]"]:::application
-  roles["«Application Component» Roles and review [ACMP12]"]:::application
+  health["⊞ Health and search services [ACMP11]"]:::application
+  roles["⊞ Roles and review [ACMP12]"]:::application
   ui --> health
   ui --> roles
   health --> svc
