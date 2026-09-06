@@ -398,13 +398,18 @@ def render(ctx: AppContext) -> html.Div:
                                 dmc.Select(
                                     id=ids.PR_BRANCH,
                                     label="Branch",
-                                    description="An open branch to write to, or type a name to create one from main.",
+                                    description="An open branch to write to; leave empty to create one from main.",
                                     data=open_branches,
                                     value=ctx.branch() if ctx.branch() != MAIN else None,
                                     searchable=True,
                                     clearable=True,
-                                    placeholder="New branch name…",
+                                    placeholder="Open branch…",
                                     comboboxProps={"withinPortal": True},
+                                ),
+                                dmc.TextInput(
+                                    id=ids.PR_BRANCH_NEW,
+                                    label="…or a new branch",
+                                    placeholder="Named after the proposal when left empty",
                                 ),
                                 dmc.Select(
                                     id=ids.PR_WP,
@@ -617,7 +622,7 @@ def register(app: dash.Dash) -> None:
         State(ids.PR_REL_GRID, "selectedRows"),
         State(ids.PR_RESULT_STORE, "data"),
         State(ids.PR_BRANCH, "value"),
-        State(ids.PR_BRANCH, "searchValue"),
+        State(ids.PR_BRANCH_NEW, "value"),
         State(ids.PR_WP, "value"),
         State(ids.PR_WP_NEW, "value"),
         prevent_initial_call=True,
@@ -634,7 +639,7 @@ def register(app: dash.Dash) -> None:
         rel_sel,
         stored,
         branch,
-        branch_text,
+        branch_new,
         wp,
         wp_new,
     ):
@@ -657,21 +662,17 @@ def register(app: dash.Dash) -> None:
                 alert("Not applied: see what is missing above.", "yellow"),
                 no_update,
             )
-        name = (branch or branch_text or "").strip()
-        if not name:
-            return (
-                no_update,
-                alert("Choose an open branch, or type a name for a new one.", "yellow"),
-                no_update,
-            )
+        new_name = (branch_new or "").strip()
         try:
-            existing = ctx.backend.get_branch(name)
-            if existing is None:
+            if new_name:
                 b = ctx.branches.create(
-                    name, ctx.actor, f"Proposal: {result.title or name}", result.work_package_id or ""
+                    new_name, ctx.actor, f"Proposal: {result.title or new_name}", result.work_package_id or ""
                 )
+            elif branch:
+                b = ctx.branches.get(branch)
             else:
-                b = existing
+                title = result.title or f"proposal {len(ctx.branches.list()) + 1}"
+                b = ctx.branches.create(title, ctx.actor, f"Proposal: {title}", result.work_package_id or "")
             out = ctx.proposals.apply(result, b.branch_id, ctx.actor)
         except (ValidationError, ConflictError, NotFoundError, ValueError) as exc:
             msg = "; ".join(str(i) for i in exc.issues) if isinstance(exc, ValidationError) else str(exc)
