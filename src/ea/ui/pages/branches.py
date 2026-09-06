@@ -70,7 +70,12 @@ GRID_COLUMNS = [
 def _branch_table(ctx: AppContext, status: str | None, selected: str | None):
     rows = ctx.branches.list(status or None)
     if not rows:
-        return dmc.Text("No branches yet. Create one with the + button in the header.", c="dimmed", size="sm")
+        text = (
+            f"No {status} branches. Pick another status above."
+            if status and ctx.branches.list()
+            else "No branches yet. Create one with the + button in the header."
+        )
+        return dmc.Text(text, c="dimmed", size="sm")
     out = []
     for b in rows:
         wp = ctx.backend.get_element(b.work_package) if b.work_package else None
@@ -117,7 +122,8 @@ def _fmt(v: Any) -> str:
     return str(v)
 
 
-def _detail(ctx: AppContext, branch_id: str):
+def _detail(ctx: AppContext, branch_id: str, message: Any = None):
+    """The branch's head, counts and merge log; `message` is the outcome of the last merge or abandon."""
     try:
         cs: ChangeSet = ctx.branches.diff(branch_id)
     except NotFoundError:
@@ -302,7 +308,7 @@ def _detail(ctx: AppContext, branch_id: str):
                     ),
                     empty_note,
                     html.Div(grid, hidden=not rows),
-                    html.Div(id=ids.BR_FEEDBACK, style={"marginTop": "0.5rem"}),
+                    html.Div(message, id=ids.BR_FEEDBACK, style={"marginTop": "0.5rem"}),
                 ],
                 p="md",
                 withBorder=True,
@@ -436,10 +442,15 @@ def register(app: dash.Dash) -> None:
             ctx.graph.invalidate()
             switched = _leave_if_current(ctx, branch_id)
             return (
-                alert(
-                    f"Branch {branch_id} abandoned; its rows are discarded and main is untouched.", "green"
+                no_update,
+                _detail(
+                    ctx,
+                    branch_id,
+                    alert(
+                        f"Branch {branch_id} abandoned; its rows are discarded and main is untouched.",
+                        "green",
+                    ),
                 ),
-                _detail(ctx, branch_id),
                 _branch_table(ctx, status or None, branch_id),
                 ctx.branch_options(),
                 MAIN if switched else no_update,
@@ -476,8 +487,8 @@ def register(app: dash.Dash) -> None:
         )
         switched = res.closed and _leave_if_current(ctx, branch_id)
         return (
-            alert(msg, "green"),
-            _detail(ctx, branch_id),
+            no_update,
+            _detail(ctx, branch_id, alert(msg, "green")),
             _branch_table(ctx, status or None, branch_id),
             ctx.branch_options(),
             MAIN if switched else no_update,
