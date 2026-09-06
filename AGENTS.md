@@ -34,6 +34,30 @@ and never quietly widen the PoC with a roadmap item.
 An approval that isn't recorded didn't happen: every gate is written into the
 scope document's Approvals table, with who approved, when, and what was shown.
 
+## The method comes from the archreator plugin
+
+This repository enables the [archreator](https://github.com/roanboc/archreator)
+plugin (`.claude/settings.json`: marketplace `archreator`, plugin
+`archreator@archreator`), so every session, local or remote, holds the same
+rulebook. **Load the skill before the step, not after:**
+
+| Step | Skill to load |
+| ---- | ------------- |
+| Writing or editing anything under `architecture/` | `architecture-document-style` (every layer document opens with its legend and each section with its diagram, then the tables; identifiers, status glyphs, relationship tables) |
+| Opening an initiative from a requirement | `align-change-through-layers`, then `write-scope-document` |
+| Touching the roadmap in `6_transition/` | `plan-the-transition` |
+| Recording a call smaller than an initiative | `record-decision` |
+| Describing a pull request | `write-pr-description` |
+
+The two validators under `scripts/` are copies of the plugin's scaffold
+scripts (`plugins/archreator/scaffold/scripts/`, plugin version 0.2.0) so that
+CI, which has no plugin, runs the same checks. Keep them identical to the
+plugin's; a change to a validator goes upstream first. Without the plugin
+(a session where it failed to load), read the skill from the plugin's
+repository before writing a layer document: the validators check identifiers,
+status and that the views come before the tables, not the rest of a
+document's shape.
+
 ## Modeling depth
 
 **Declared depth: 1 — Application.** The repository manages an enterprise

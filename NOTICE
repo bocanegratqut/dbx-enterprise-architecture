@@ -34,3 +34,8 @@ diagrams render without a request to a content delivery network.
 The draw.io export writes files in the diagrams.net (draw.io) XML format and
 names ArchiMate 3 stencil shapes from that application (Apache License 2.0,
 https://github.com/jgraph/drawio); no draw.io code is bundled.
+
+archreator (https://github.com/roanboc/archreator), MIT License, Copyright (c) 2026 roanboc.
+The validators under scripts/ (check_links.py, check_model.py, model_graph.py,
+element-prefixes.json) are copies of the plugin's scaffold scripts; the method
+itself is loaded as a plugin (.claude/settings.json).

@@ -15,7 +15,7 @@ this one silently. What stayed here is the judgement — the checks below
 and the exit code. Nothing is persisted: validation needs a parse, not a
 store, so this script still builds the graph, checks it and exits.
 
-Six things are checked, per project:
+Seven things are checked, per project:
 
 - **Dangling references** — every referenced ID resolves to a definition.
   A qualified reference (`SALES.BSVC3`) resolves inside that domain's
@@ -35,6 +35,15 @@ Six things are checked, per project:
   unavoidable copy, with a check on it. The **archetype** is deliberately not
   checked: it cannot drift away from the prefix sitting in the cell beside it,
   and the word for it is language-dependent where the prefix is not.
+- **A document with no view, or whose views trail its tables** — every
+  element document opens with its legend ("How to read this document") and
+  each section opens with its diagram, per `architecture-document-style`
+  § Document skeleton and `references/archimate-on-mermaid.md` § Diagrams come
+  first. The check is the enforceable core of both: a document that defines
+  elements carries at least one ```mermaid fence, and its first fence comes
+  before its first table. A catalogue with no picture, or a picture stapled
+  on at the end, passed silently until this check; a reader who meets three
+  tables before a diagram builds the picture themselves, and most will not.
 - **Undeclared status** — a document that defines an element says in its
   preamble how far it has been validated, with one of the three glyphs in
   `architecture-document-style` § Document status. A catalogue of elements
@@ -223,10 +232,13 @@ def check_project(project: Path, known: dict | None = None) -> tuple[list[str], 
         elif not status:  # pragma: no cover - unreachable while count == 1
             errors.append(f"{doc}: unrecognised status glyph")
 
-    # A layer document opens with its views. `architecture-document-style` puts one to
-    # three diagrams in the notation before the catalogue tables they are drawn from, so a
-    # reader sees the shape before the rows. Nothing enforced that until this check: a
-    # catalogue with no diagram, or one whose diagram trails the tables, passed silently.
+    # Every element document opens with its views (`architecture-document-style`
+    # § Document skeleton; `references/archimate-on-mermaid.md` § Diagrams come
+    # first, § Every element document opens with "How to read this document").
+    # The enforceable core of both rules: a defining document carries a Mermaid
+    # fence, and the first fence precedes the first table. A layer README that
+    # only indexes other documents defines nothing and is exempt, as the rule
+    # says it is.
     for doc in sorted(defining):
         try:
             text = (REPO_ROOT / doc).read_text(encoding="utf-8")
@@ -236,13 +248,14 @@ def check_project(project: Path, known: dict | None = None) -> tuple[list[str], 
         first_table = next((m.start() for m in re.finditer(r"^\|", text, re.M)), -1)
         if fence < 0:
             errors.append(
-                f"{doc}: defines elements and carries no view. Open the document with at "
-                f"least one ```mermaid diagram in the notation before its catalogue tables"
+                f"{doc}: defines elements and carries no view. Open it with the legend "
+                f"diagram (\"How to read this document\") and give each section its "
+                f"diagram before the tables, in a ```mermaid fence"
             )
         elif first_table >= 0 and fence > first_table:
             errors.append(
-                f"{doc}: its first view comes after its first table. A layer document opens "
-                f"with its views; the tables that define the elements follow"
+                f"{doc}: its first view comes after its first table. A document opens "
+                f"with its views; the tables that define the elements follow them"
             )
 
     for said, md_file in parsed.restatements:

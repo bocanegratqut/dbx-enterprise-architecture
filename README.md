@@ -201,6 +201,11 @@ make lint
 make test
 ```
 
+The archreator plugin is enabled for this repository (`.claude/settings.json`);
+a coding agent that opens it gets the method's skills, and `AGENTS.md` says
+which skill to load at which step. The two validators under `scripts/` are the
+plugin's scaffold scripts, copied so CI runs them without the plugin.
+
 Layering: `models → metamodel → backend → services → importer / agent → ui`.
 SQL only in `backend/`; framework and institution names only in `packs/` and
 `connectors/`; the UI holds no logic the CLI does not also have.
