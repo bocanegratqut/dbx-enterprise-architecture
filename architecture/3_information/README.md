@@ -8,6 +8,18 @@ files and audit trail around them. This layer describes the repository's
 *own* information; the enterprise content it holds (the institution's elements) is data
 inside `DOBJ2`, not elements of this model.
 
+## How to read this document
+
+```mermaid
+flowchart LR
+  %% legend
+  n0[/"⎔ «Artifact» a file the build produces or reads [ART#]"/]:::technology
+  n1["▦ «Data Object» what is stored [DOBJ#]"]:::application
+
+  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+```
+
 ## Analysis order
 
 | #   | Document | Elements | Question it answers |
@@ -26,16 +38,16 @@ extend them (`DOBJ2.1`).
 ```mermaid
 flowchart LR
   subgraph META["DOBJ1 Metamodel"]
-    pack["«Representation» YAML pack"]:::business
-    reg["«Data Object» Element type · Relationship type · Attribute"]:::application
+    pack[/"⎔ Metamodel pack [ART2]"/]:::technology
+    reg["▦ Element type · Relationship type · Attribute"]:::application
   end
   subgraph GRAPH["DOBJ2 Architecture graph"]
-    el["«Data Object» Element · Relationship · Link"]:::application
-    store[("«Artifact» DuckDB file / Delta tables")]:::technology
+    el["▦ Element · Relationship · Link"]:::application
+    store[/"⎔ Repository file [ART1]"/]:::technology
   end
   subgraph XCH["DOBJ3 Exchange and audit"]
-    csv["«Representation» elements.csv · relationships.csv · links.csv"]:::business
-    log["«Data Object» Change log · Import report"]:::application
+    csv[/"⎔ Exchange files [ART3]"/]:::technology
+    log["▦ Change log · Import report"]:::application
   end
 
   pack -->|loaded into| reg

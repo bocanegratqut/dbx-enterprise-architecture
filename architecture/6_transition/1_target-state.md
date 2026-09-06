@@ -7,16 +7,27 @@ on 2026-09-05 after the business-case review. Approved at the **Direction**
 gate (recorded in [scope/1_curriculum-poc.md](../scope/1_curriculum-poc.md));
 the gaps beyond `PLAT1` are intent, not work.
 
-## The plateaus, in order
+## How to read this document
 
 ```mermaid
 flowchart LR
-  p1["▭ «Plateau» Local PoC on DuckDB [PLAT1]"]:::implementation
-  p2["▭ «Plateau» Same application on Databricks [PLAT2]"]:::implementation
-  p3["▭ «Plateau» Real content with provenance [PLAT3]"]:::implementation
-  p4["▭ «Plateau» Governed change [PLAT4]"]:::implementation
-  p5["▭ «Plateau» Semantic front doors [PLAT5]"]:::implementation
-  p6["▭ «Plateau» Current EA tool retired [PLAT6]"]:::implementation
+  %% legend
+  n0[["≡ «Plateau» a state the architecture reaches [PLAT#]"]]:::implementation
+  n1(("⊘ «Gap» what stands between two plateaus [GAP#]")):::implementation
+
+  classDef implementation fill:#ffd6d6,stroke:#d99b9b,color:#333
+```
+
+## Plateaus
+
+```mermaid
+flowchart LR
+  p1["≡ Local PoC on DuckDB [PLAT1]"]:::implementation
+  p2["≡ Same application on Databricks [PLAT2]"]:::implementation
+  p3["≡ Real content with provenance [PLAT3]"]:::implementation
+  p4["≡ Governed change [PLAT4]"]:::implementation
+  p5["≡ Semantic front doors [PLAT5]"]:::implementation
+  p6["≡ Current EA tool retired [PLAT6]"]:::implementation
   p2 -->|depends on| p1
   p3 -->|depends on| p1
   p4 -->|depends on| p2
@@ -28,58 +39,6 @@ flowchart LR
   classDef implementation fill:#f8d7da,stroke:#c0392b,color:#333
 ```
 
-## Gaps closed so far, and by what
-
-```mermaid
-flowchart LR
-  p1["▭ «Plateau» Local PoC on DuckDB [PLAT1]"]:::implementation
-  p4["▭ «Plateau» Governed change [PLAT4]"]:::implementation
-  g9["△ «Gap» Views are graph layouts, not architecture diagrams [GAP9]"]:::implementation
-  g11["△ «Gap» No notation editor, hard-coded colours, fixed diagrams, graphs that overlap [GAP11]"]:::implementation
-  g5["△ «Gap» No change-set model [GAP5]"]:::implementation
-  g12["△ «Gap» No target state model [GAP12]"]:::implementation
-  g13["△ «Gap» No proposal intake [GAP13]"]:::implementation
-  g14["△ «Gap» No roles, no review before merge [GAP14]"]:::implementation
-  g15["△ «Gap» Nothing tells the model's health [GAP15]"]:::implementation
-  g9 -->|closed, initiative 2| p1
-  g11 -->|closed, initiative 3| p1
-  g12 -->|closed, initiative 4| p4
-  g13 -->|closed, initiative 5| p4
-  g5 -->|core closed, initiative 4| p4
-  g14 -->|closed, initiative 7| p4
-  g15 -->|closed, initiative 6| p1
-
-  classDef implementation fill:#f8d7da,stroke:#c0392b,color:#333
-```
-
-## Gaps still open
-
-```mermaid
-flowchart LR
-  p2["▭ «Plateau» Same application on Databricks [PLAT2]"]:::implementation
-  p3["▭ «Plateau» Real content with provenance [PLAT3]"]:::implementation
-  p5["▭ «Plateau» Semantic front doors [PLAT5]"]:::implementation
-  p6["▭ «Plateau» Current EA tool retired [PLAT6]"]:::implementation
-  g1["△ «Gap» No Delta backend [GAP1]"]:::implementation
-  g2["△ «Gap» No deployment bundle [GAP2]"]:::implementation
-  g3["△ «Gap» No real institutional content [GAP3]"]:::implementation
-  g4["△ «Gap» No source feeds [GAP4]"]:::implementation
-  g6["△ «Gap» No projection, glossary or Genie-based agent [GAP6]"]:::implementation
-  g7["△ «Gap» No tool server for external agents [GAP7]"]:::implementation
-  g8["△ «Gap» No retirement criteria for the current EA tool [GAP8]"]:::implementation
-  g1 -.-> p2
-  g2 -.-> p2
-  g3 -.-> p3
-  g4 -.-> p3
-  g6 -.-> p5
-  g7 -.-> p5
-  g8 -.-> p6
-
-  classDef implementation fill:#f8d7da,stroke:#c0392b,color:#333
-```
-
-## Plateaus
-
 | ID | Plateau | Status | What is true when it is reached |
 | -- | ------- | ------ | ------------------------------- |
 | `PLAT1` | **Local PoC on DuckDB** — the four deliverables (metamodel manager, element browse and edit, CSV ingestion, grounded agent) run on a DuckDB file with the higher-education pack and the curriculum export; extended by initiative 2 with generated architecture views and answer documents | In flight — initiatives 1 and 2 | The owner can show the app on the curriculum slice; the information architect has seen it |
@@ -90,6 +49,30 @@ flowchart LR
 | `PLAT6` | **Current EA tool retired** — the repository is the system of record for authored types, the mirror for the rest, and the diagrams architects need are generated from it | Planned | The current tool's licence not renewed; retirement criteria agreed with the IT division's enterprise architecture team |
 
 ## Gaps
+
+```mermaid
+flowchart LR
+  p2["≡ Same application on Databricks [PLAT2]"]:::implementation
+  p3["≡ Real content with provenance [PLAT3]"]:::implementation
+  p5["≡ Semantic front doors [PLAT5]"]:::implementation
+  p6["≡ Current EA tool retired [PLAT6]"]:::implementation
+  g1["⊘ No Delta backend [GAP1]"]:::implementation
+  g2["⊘ No deployment bundle [GAP2]"]:::implementation
+  g3["⊘ No real institutional content [GAP3]"]:::implementation
+  g4["⊘ No source feeds [GAP4]"]:::implementation
+  g6["⊘ No projection, glossary or Genie-based agent [GAP6]"]:::implementation
+  g7["⊘ No tool server for external agents [GAP7]"]:::implementation
+  g8["⊘ No retirement criteria for the current EA tool [GAP8]"]:::implementation
+  g1 -.-> p2
+  g2 -.-> p2
+  g3 -.-> p3
+  g4 -.-> p3
+  g6 -.-> p5
+  g7 -.-> p5
+  g8 -.-> p6
+
+  classDef implementation fill:#f8d7da,stroke:#c0392b,color:#333
+```
 
 | ID | Gap | Between | Closed by |
 | -- | --- | ------- | --------- |
@@ -108,6 +91,30 @@ flowchart LR
 | `GAP13` | **No proposal intake** — a design document cannot be handed to the repository; every element is typed in by hand or imported from a tool | `PLAT1` and `PLAT4` | Initiative 5 (built 2026-09-06): the Propose page with the editable merge-log preview, the pushback rule, the Proposal Template; a hosted reader for free text, a stub for the template |
 | `GAP14` | **No roles, no review before merge** — every user could do everything and any author could merge their own branch; nothing recorded a second person's decision | `PLAT1` and `PLAT4` | Initiative 7 (built 2026-09-06): roles derived from groups (Admin, Architect, Reviewer, Reader, Agent) enforced in the app and the command line, a debug persona switcher locally, review requested and decided per element type before a merge |
 | `GAP15` | **Nothing tells the model's health** — no way to see which source went stale, which types lack descriptions or owners, or to fix many rows at once; search read names only | `PLAT1` and `PLAT3` | Initiative 6 (built 2026-09-06): full-text search over descriptions and attributes, bulk edit from Browse, the Health page with freshness per source and completeness per type |
+
+## Gaps closed so far, and by what
+
+```mermaid
+flowchart LR
+  p1["≡ Local PoC on DuckDB [PLAT1]"]:::implementation
+  p4["≡ Governed change [PLAT4]"]:::implementation
+  g9["⊘ Views are graph layouts, not architecture diagrams [GAP9]"]:::implementation
+  g11["⊘ No notation editor, hard-coded colours, fixed diagrams, graphs that overlap [GAP11]"]:::implementation
+  g5["⊘ No change-set model [GAP5]"]:::implementation
+  g12["⊘ No target state model [GAP12]"]:::implementation
+  g13["⊘ No proposal intake [GAP13]"]:::implementation
+  g14["⊘ No roles, no review before merge [GAP14]"]:::implementation
+  g15["⊘ Nothing tells the model's health [GAP15]"]:::implementation
+  g9 -->|closed, initiative 2| p1
+  g11 -->|closed, initiative 3| p1
+  g12 -->|closed, initiative 4| p4
+  g13 -->|closed, initiative 5| p4
+  g5 -->|core closed, initiative 4| p4
+  g14 -->|closed, initiative 7| p4
+  g15 -->|closed, initiative 6| p1
+
+  classDef implementation fill:#f8d7da,stroke:#c0392b,color:#333
+```
 
 ## Relationships
 

@@ -7,16 +7,28 @@ _[← Information layer](./README.md) · [EA home](../README.md)_
 decisions of 2026-09-05 and 2026-09-06 (initiatives 1 to 7). Validated at the
 **Understanding** gate with the information architect.
 
-## The metamodel objects
+## How to read this document
 
 ```mermaid
 flowchart LR
-  pack[("▤ «Artifact» Metamodel pack [ART2]")]:::technology
-  et["▤ «Data Object» Element type [DOBJ1.1]"]:::application
-  rt["▤ «Data Object» Relationship type [DOBJ1.2]"]:::application
-  at["▤ «Data Object» Attribute definition [DOBJ1.3]"]:::application
-  dom["▤ «Data Object» Domain [DOBJ1.4]"]:::application
-  nota["▤ «Data Object» Notation [DOBJ1.5]"]:::application
+  %% legend
+  n0[/"⎔ «Artifact» a file the build produces or reads [ART#]"/]:::technology
+  n1["▦ «Data Object» what is stored [DOBJ#]"]:::application
+
+  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+```
+
+## Domains
+
+```mermaid
+flowchart LR
+  pack[("⎔ Metamodel pack [ART2]")]:::technology
+  et["▦ Element type [DOBJ1.1]"]:::application
+  rt["▦ Relationship type [DOBJ1.2]"]:::application
+  at["▦ Attribute definition [DOBJ1.3]"]:::application
+  dom["▦ Domain [DOBJ1.4]"]:::application
+  nota["▦ Notation [DOBJ1.5]"]:::application
   pack -->|loaded into| et
   pack -->|loaded into| rt
   at -->|declared on| et
@@ -29,18 +41,24 @@ flowchart LR
   classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
 ```
 
-## The graph and its branches
+| ID | Domain | Owner | Holds |
+| -- | ------ | ----- | ----- |
+| `DOBJ1` | **Metamodel** — what may exist: element types, relationship types, attributes, domains, provenance tags | The framework owner (for the first pack, the IT division's enterprise architecture team; the pack is their metamodel as data) | One pack per framework; `higher_education` today |
+| `DOBJ2` | **Architecture graph** — what does exist: elements, relationships, links | The content owners (for the PoC, everything is sourced from the current EA tool) | About 4,600 elements once the institution's full export is loaded; 45 in the sample |
+| `DOBJ3` | **Exchange and audit** — how content arrives and how every change is remembered | The repository itself | CSV exchange files, column mappings, import reports, the change log |
+
+## Objects
 
 ```mermaid
 flowchart LR
-  el["▤ «Data Object» Element [DOBJ2.1]"]:::application
-  rel["▤ «Data Object» Relationship [DOBJ2.2]"]:::application
-  ln["▤ «Data Object» Element link [DOBJ2.3]"]:::application
-  view["▤ «Data Object» Architecture view [DOBJ2.4]"]:::application
-  br["▤ «Data Object» Branch [DOBJ2.5]"]:::application
-  cs["▤ «Data Object» Change set [DOBJ2.6]"]:::application
-  rev["▤ «Data Object» Review [DOBJ2.7]"]:::application
-  et["▤ «Data Object» Element type [DOBJ1.1]"]:::application
+  el["▦ Element [DOBJ2.1]"]:::application
+  rel["▦ Relationship [DOBJ2.2]"]:::application
+  ln["▦ Element link [DOBJ2.3]"]:::application
+  view["▦ Architecture view [DOBJ2.4]"]:::application
+  br["▦ Branch [DOBJ2.5]"]:::application
+  cs["▦ Change set [DOBJ2.6]"]:::application
+  rev["▦ Review [DOBJ2.7]"]:::application
+  et["▦ Element type [DOBJ1.1]"]:::application
   rel -->|connects| el
   ln -->|attached to| el
   el -->|typed by| et
@@ -52,39 +70,6 @@ flowchart LR
 
   classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
 ```
-
-## Exchange, audit and intake
-
-```mermaid
-flowchart LR
-  csv["▤ «Data Object» CSV exchange files [DOBJ3.1]"]:::application
-  map["▤ «Data Object» Column mapping [DOBJ3.2]"]:::application
-  rep["▤ «Data Object» Import report [DOBJ3.3]"]:::application
-  log["▤ «Data Object» Change log [DOBJ3.4]"]:::application
-  ans["▤ «Data Object» Answer document [DOBJ3.5]"]:::application
-  prop["▤ «Data Object» Proposal [DOBJ3.6]"]:::application
-  el["▤ «Data Object» Element [DOBJ2.1]"]:::application
-  br["▤ «Data Object» Branch [DOBJ2.5]"]:::application
-  view["▤ «Data Object» Architecture view [DOBJ2.4]"]:::application
-  map -->|normalises| csv
-  csv -->|imported as| el
-  csv -->|reported in| rep
-  log -->|records changes of| el
-  ans -->|embeds| view
-  prop -->|written to| br
-
-  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
-```
-
-## Domains
-
-| ID | Domain | Owner | Holds |
-| -- | ------ | ----- | ----- |
-| `DOBJ1` | **Metamodel** — what may exist: element types, relationship types, attributes, domains, provenance tags | The framework owner (for the first pack, the IT division's enterprise architecture team; the pack is their metamodel as data) | One pack per framework; `higher_education` today |
-| `DOBJ2` | **Architecture graph** — what does exist: elements, relationships, links | The content owners (for the PoC, everything is sourced from the current EA tool) | About 4,600 elements once the institution's full export is loaded; 45 in the sample |
-| `DOBJ3` | **Exchange and audit** — how content arrives and how every change is remembered | The repository itself | CSV exchange files, column mappings, import reports, the change log |
-
-## Objects
 
 | ID | Object | Code | Persisted as | Classification |
 | -- | ------ | ---- | ------------ | -------------- |
@@ -107,6 +92,29 @@ flowchart LR
 | `DOBJ3.5` | **Answer document** — a Markdown document composed from an agent answer: question, answer, elements involved, views as Mermaid, identifiers returned by the tools, ungrounded identifiers, tool trace | `AnswerDocument` and `compose()` in `src/ea/agent/document.py` | not persisted; downloadable as Markdown (question 10, resolved: answer documents are not stored in the repository) | as the content it cites |
 | `DOBJ3.6` | **Proposal** — the sources an architect handed in (text, files, links), the change set the agent derived from them (elements linked or new, relationships, states, work package), the pushback when the sources were insufficient, who proposed and when, and the branch it went to | `Proposal` in `src/ea/models.py`; `ProposalResult` and `ProposalService` in `src/ea/agent/proposal.py`; the Proposal Template in `templates/proposal-template.md` | table `proposal`, kept with the branch | as the content it carries |
 
+## Exchange, audit and intake
+
+```mermaid
+flowchart LR
+  csv["▦ CSV exchange files [DOBJ3.1]"]:::application
+  map["▦ Column mapping [DOBJ3.2]"]:::application
+  rep["▦ Import report [DOBJ3.3]"]:::application
+  log["▦ Change log [DOBJ3.4]"]:::application
+  ans["▦ Answer document [DOBJ3.5]"]:::application
+  prop["▦ Proposal [DOBJ3.6]"]:::application
+  el["▦ Element [DOBJ2.1]"]:::application
+  br["▦ Branch [DOBJ2.5]"]:::application
+  view["▦ Architecture view [DOBJ2.4]"]:::application
+  map -->|normalises| csv
+  csv -->|imported as| el
+  csv -->|reported in| rep
+  log -->|records changes of| el
+  ans -->|embeds| view
+  prop -->|written to| br
+
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+```
+
 ## Persistence
 
 One schema, two engines (principle `P4`). The DDL in `src/ea/backend/sql.py`
@@ -115,7 +123,7 @@ lives in one DuckDB file (`data/ea.duckdb`; `/tmp/ea.duckdb` on Databricks
 Apps while the Delta backend is pending). On Databricks the same tables land in
 one Unity Catalog schema (`EA_CATALOG.EA_SCHEMA`), where Unity Catalog's own
 lineage, comments and grants apply and where the business glossary is published
-(question 6 in [scope/open-questions.md](../scope/open-questions.md)).
+(adopted: the platform's own catalogue publishes the glossary).
 
 Traversals (`neighbours`, `trace`, `impact`) are recursive queries over
 `relationship` with a cycle guard, plus an in-process cache of the graph for
@@ -130,8 +138,7 @@ the app; the whole institutional graph fits in memory (assessment `ASM6`).
   on the projection are a plateau `PLAT4` concern.
 - Nothing is deleted: an element is retired (`status = retired`), a relationship
   removal is logged, and the change log is append-only. The change log is kept
-  for 2 years on the platform once it runs on Databricks (question 8, resolved
-  in [scope/open-questions.md](../scope/open-questions.md)).
+  for 2 years on the platform once it runs on Databricks.
 
 ## Relationships
 

@@ -4,25 +4,54 @@ _[← Application layer](./README.md) · [EA home](../README.md)_
 
 **Status: `◐` draft catalogue** — the components as they exist in the code on
 2026-09-06. A row marked **Pending** names the initiative that will build it.
-Validated at the **Understanding** gate; the **Design** gate is offered but not
-required at Depth 1.
+Validated at the **Understanding** gate.
 
-## Dependencies between components
+## How to read this document
+
+```mermaid
+flowchart LR
+  %% legend
+  n0["⊞ «Application Component» a piece of software [ACMP#]"]:::application
+  n1[/"⎔ «Artifact» a file the build produces or reads [ART#]"/]:::technology
+  n2["⬒ «Node» where it runs [NODE#]"]:::technology
+
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
+```
+
+## Layering rule
+
+```mermaid
+flowchart LR
+  m["models"]:::layer --> mm["metamodel"]:::layer --> be["backend"]:::layer --> sv["services"]:::layer --> vw["views · importer · agent"]:::layer --> ui["ui"]:::layer
+  sql["SQL lives here only"]:::note -.-> be
+  packs["type and column names live in packs/ and connectors/ only"]:::note -.-> mm
+
+  classDef layer fill:#c2f0ff,stroke:#0288d1,color:#333
+  classDef note fill:#eeeeee,stroke:#888888,color:#333
+```
+
+`models → metamodel → backend → services → views / importer / agent → ui`. A module
+imports only from layers to its left. SQL lives in `backend/` only
+(principle `P4`); framework and institution names live in `packs/` and
+`connectors/` only (principle `P5`).
+
+## Components
 
 ```mermaid
 flowchart TB
-  ui["▭ «Application Component» Web application [ACMP6]"]:::application
-  cli["▭ «Application Component» Command line [ACMP7]"]:::application
-  agent["▭ «Application Component» Agent [ACMP5]"]:::application
-  prop["▭ «Application Component» Proposal agent [ACMP10]"]:::application
-  views["▭ «Application Component» View generator [ACMP8]"]:::application
-  svc["▭ «Application Component» Repository and graph services [ACMP3]"]:::application
-  health["▭ «Application Component» Health and search services [ACMP11]"]:::application
-  roles["▭ «Application Component» Roles and review [ACMP12]"]:::application
-  br["▭ «Application Component» Branch overlay and merge [ACMP9]"]:::application
-  imp["▭ «Application Component» Importer [ACMP4]"]:::application
-  reg["▭ «Application Component» Metamodel registry [ACMP1]"]:::application
-  store["▭ «Application Component» Graph store [ACMP2]"]:::application
+  ui["⊞ Web application [ACMP6]"]:::application
+  cli["⊞ Command line [ACMP7]"]:::application
+  agent["⊞ Agent [ACMP5]"]:::application
+  prop["⊞ Proposal agent [ACMP10]"]:::application
+  views["⊞ View generator [ACMP8]"]:::application
+  svc["⊞ Repository and graph services [ACMP3]"]:::application
+  health["⊞ Health and search services [ACMP11]"]:::application
+  roles["⊞ Roles and review [ACMP12]"]:::application
+  br["⊞ Branch overlay and merge [ACMP9]"]:::application
+  imp["⊞ Importer [ACMP4]"]:::application
+  reg["⊞ Metamodel registry [ACMP1]"]:::application
+  store["⊞ Graph store [ACMP2]"]:::application
   ui --> svc
   ui --> imp
   ui --> agent
@@ -52,45 +81,6 @@ flowchart TB
   classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
 ```
 
-## The layering rule as a picture
-
-```mermaid
-flowchart LR
-  m["models"]:::layer --> mm["metamodel"]:::layer --> be["backend"]:::layer --> sv["services"]:::layer --> vw["views · importer · agent"]:::layer --> ui["ui"]:::layer
-  sql["SQL lives here only"]:::note -.-> be
-  packs["type and column names live in packs/ and connectors/ only"]:::note -.-> mm
-
-  classDef layer fill:#c2f0ff,stroke:#0288d1,color:#333
-  classDef note fill:#eeeeee,stroke:#888888,color:#333
-```
-
-## The store and its engines
-
-```mermaid
-flowchart LR
-  store["▭ «Application Component» Graph store [ACMP2]"]:::application
-  duck["▭ «Application Component» DuckDB backend [ACMP2.1]"]:::application
-  dbx["▭ «Application Component» Databricks backend [ACMP2.2]"]:::application
-  file[("▤ «Artifact» Repository file [ART1]")]:::technology
-  node["⬒ «Node» Databricks workspace [NODE2]"]:::technology
-  store -->|realized by| duck
-  store -.->|realized by, pending| dbx
-  duck -->|holds| file
-  dbx -.->|runs on, pending| node
-
-  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
-  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
-```
-
-## Layering rule
-
-`models → metamodel → backend → services → views / importer / agent → ui`. A module
-imports only from layers to its left. SQL lives in `backend/` only
-(principle `P4`); framework and institution names live in `packs/` and
-`connectors/` only (principle `P5`).
-
-## Components
-
 | ID | Component | Code | Realizes | State |
 | -- | --------- | ---- | -------- | ----- |
 | `ACMP1` | **Metamodel registry** — loads a pack, validates references and supertype cycles, resolves type and relationship names, computes inherited attributes and allowed pairs, validates elements and relationships, summarises the metamodel for the agent | `src/ea/metamodel/loader.py`, `src/ea/metamodel/registry.py`, `src/ea/models.py` | `ASVC1` | Running |
@@ -107,6 +97,24 @@ imports only from layers to its left. SQL lives in `backend/` only
 | `ACMP10` | **Proposal agent** — reads sources (pasted text, Markdown, text and CSV files, fetched links), resolves elements by identifier and by name and relationships against the metamodel, computes the pushback, applies the reviewed change set to a branch and keeps the proposal; a stub provider parses the Proposal Template's tables, a hosted provider reads free text with the read tools and submits a structured result through a `submit_proposal` tool | `src/ea/agent/proposal.py`, `templates/proposal-template.md` | `ASVC9` | Running (stub locally; the hosted provider needs a key) |
 | `ACMP11` | **Health and search services** — the search that reads names, identifiers, descriptions and attributes word by word and ranks the hits; bulk edits of many elements in one audited pass; the freshness and completeness figures the Health page shows, each with the identifiers behind it | `src/ea/services/search.py`, `src/ea/services/health.py`; `bulk_update()` in `src/ea/services/repository.py` | `ASVC2`, `ASVC10` | Running |
 | `ACMP12` | **Roles and review** — the role of the signed-in user (from workspace groups through the role configuration, or the debug persona locally), the permission checks every write goes through, and the review of a branch: request, approve per element type, send back, the reviewer assignments per type | `src/ea/services/roles.py`, `src/ea/services/reviews.py`; the personas in `src/ea/ui/context.py` | `ASVC7`, every writing service | Running |
+
+## The store and its engines
+
+```mermaid
+flowchart LR
+  store["⊞ Graph store [ACMP2]"]:::application
+  duck["⊞ DuckDB backend [ACMP2.1]"]:::application
+  dbx["⊞ Databricks backend [ACMP2.2]"]:::application
+  file[("⎔ Repository file [ART1]")]:::technology
+  node["⬒ Databricks workspace [NODE2]"]:::technology
+  store -->|realized by| duck
+  store -.->|realized by, pending| dbx
+  duck -->|holds| file
+  dbx -.->|runs on, pending| node
+
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
+```
 
 ## Relationships
 

@@ -30,19 +30,23 @@ folders are numbered in:
 2. **Document the scope.** Add the next-numbered file to this folder
    describing plateaus, work packages, in and out of scope, gaps, and gate
    approvals — before implementation starts, refined as it proceeds.
-3. **Pass the gates.** Before any code, the Requester approves the strategy
-   and information changes (**Understanding**) and chooses whether to also
-   review the solution design before it is coded (**Design**, optional).
-   Approvals are recorded in the scope document's Approvals table — who
-   approved, when, and what was shown, with `N/A — <why>` for a gate that
-   could have applied and didn't. An approval can be granted in the
-   conversation or in a reply on the pull request.
+3. **Pass the gate.** Before any code, the Requester approves the strategy
+   and information changes (**Understanding**). At Depth 1 that is the only
+   gate an ordinary change meets; **Direction** belongs to discovery and to
+   the roadmap. Each gate granted is recorded in the scope document's
+   Approvals table — who approved, when, and what was shown. One that was not
+   granted gets no row: the table records what happened, not a census of what
+   did not. An approval can be granted in the conversation or in a reply on
+   the pull request.
 4. **Implement.** Only then write the code, keeping the scope document and
    EA docs in sync with what is actually delivered.
 
-Adopted interpretations that still need a stakeholder's confirmation are
-kept in [open-questions.md](./open-questions.md). Single consequential calls
-smaller than an initiative are in [the decisions index](../decisions/README.md).
+An interpretation the agent adopted is recorded where it applies, in that
+row's `Source` cell as `adopted — <the call>`, and the document stays `◐`: a
+later word from the Requester overrides it, which an approved fact does not.
+A question reaches the Requester only when the answer changes what gets built
+now and nothing in the model settles it. Single consequential calls smaller
+than an initiative are in [the decisions index](../decisions/README.md).
 
 **A merged scope document is never rewritten**: it is the record of what was
 approved on a date and against what information. When the current-state
@@ -60,3 +64,4 @@ its own initiative with its own Understanding.
 | 5   | [5_propose.md](./5_propose.md) | `main` (in flight) | Propose: a document, file or link becomes a branch through an agent that links existing elements, adopts new ones and pushes back when the sources are insufficient; the Proposal Template |
 | 6   | [6_search-bulk-edit-and-health.md](./6_search-bulk-edit-and-health.md) | `main` (built 2026-09-06; demo pending) | Word-by-word search over names, descriptions and attributes with ranking; bulk edit from Browse; the Health page with freshness per source and completeness per type |
 | 7   | [7_roles-and-review.md](./7_roles-and-review.md) | `main` (built 2026-09-06; demo pending) | Roles enforced (Admin, Architect, Reviewer, Reader, Agent) with a debug persona switcher locally; review before merge with reviewers per element type; the business and technology layers written, views at the top of every layer document |
+| 8   | [8_two-gates-and-readable-views.md](./8_two-gates-and-readable-views.md) | branch `claude/archreator-validation-feedback-gt00b7` | archreator 0.3 applied: two gates, no row for a gate that was not granted, the open-questions log retired. The glyphs distinguish the element types, so 273 nodes drop the stereotype and every document opens with a legend; nine documents stop stacking their diagrams ahead of their tables. **No claim about the repository changes** |

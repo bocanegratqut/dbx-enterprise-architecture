@@ -134,4 +134,4 @@ Built on 2026-09-06 on `main`: the branch overlay tables and the request-scoped 
 
 ## Open questions
 
-Questions 12 and 13 in [open-questions.md](./open-questions.md).
+Questions 12 and 13 in [open-questions.md](./8_two-gates-and-readable-views.md).

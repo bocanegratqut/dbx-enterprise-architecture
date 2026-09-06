@@ -10,13 +10,21 @@ lives in [`src/ea/`](./src/ea).
 ## The rule that governs everything else
 
 **Strategy and information architecture are validated before any other layer,
-and the Requester approves at explicit gates before development.** A change in
-requirements is never coded directly: align it through the numbered EA layers
-(`architecture/1_strategy` → `3_information` → `4_application`), stop at the
-gates for the Requester's approval, record it in a scope document
-(`architecture/scope/`), then implement. Pure bug fixes that change no
-documented behaviour skip the alignment and the gates, but still keep the
-docs true.
+and the Requester approves at an explicit gate before development.** A change
+in requirements is never coded directly: align it through the numbered EA
+layers (`architecture/1_strategy` → `3_information` → `4_application`), stop at
+**Understanding** for the Requester's approval, record it in a scope document
+(`architecture/scope/`), then implement. At Depth 1 that is the only gate an
+ordinary change meets; **Direction** belongs to discovery and to the roadmap.
+Pure bug fixes that change no documented behaviour skip the alignment and the
+gate, but still keep the docs true.
+
+**Ask only what blocks the work now.** A question reaches the Requester when
+the answer changes what gets built now and nothing in the model settles it.
+Everything else is the agent's call — taken, applied, and written into the row
+it changes with `Source` reading `adopted — <the call>`, in a document that
+stays `◐`, so a later word from the Requester overrides it. Never ask about a
+state that does not exist yet.
 
 **The PoC posture** (initiatives 1 to 5, built; the Databricks step next):
 iterate and fail fast inside the approved scope, keep the long-term roadmap in
@@ -28,11 +36,13 @@ and never quietly widen the PoC with a roadmap item.
 | Role | Who | Does |
 | ---- | --- | ---- |
 | **Requester** | The product owner (a university's data and analytics unit), with the information architect validating the information layer | Says what should change — a requirement or a problem, not a diff. **Grants the gate approvals** before any code is written |
-| **Agent** | The coding agent (or a person) | Works the change through the layers, stops at each gate, writes the scope document, implements, opens a pull request |
+| **Agent** | The coding agent (or a person) | Works the change through the layers, stops at Understanding, decides what the model already settles, writes the scope document, implements, opens a pull request |
 | **Reviewer** | The product owner | Reviews and merges. Nothing ships without a human approving it |
 
-An approval that isn't recorded didn't happen: every gate is written into the
-scope document's Approvals table, with who approved, when, and what was shown.
+An approval that isn't recorded didn't happen: every gate granted is written
+into the scope document's Approvals table, with who approved, when, and what
+was shown. One that was not granted gets no row — the table records what
+happened, not a census of what did not.
 
 ## The method comes from the archreator plugin
 
@@ -43,20 +53,21 @@ rulebook. **Load the skill before the step, not after:**
 
 | Step | Skill to load |
 | ---- | ------------- |
-| Writing or editing anything under `architecture/` | `architecture-document-style` (every layer document opens with its legend and each section with its diagram, then the tables; identifiers, status glyphs, relationship tables) |
+| Writing or editing anything under `architecture/` | `architecture-document-style` (every element document opens with its legend, **each section opens with its own diagram and its own tables follow it** — never every diagram stacked at the top; a node reads `<glyph> <name> [<ID>]` and carries no stereotype outside the legend; identifiers, status glyphs, relationship tables) |
 | Opening an initiative from a requirement | `align-change-through-layers`, then `write-scope-document` |
 | Touching the roadmap in `6_transition/` | `plan-the-transition` |
 | Recording a call smaller than an initiative | `record-decision` |
 | Describing a pull request | `write-pr-description` |
 
 The two validators under `scripts/` are copies of the plugin's scaffold
-scripts (`plugins/archreator/scaffold/scripts/`, plugin version 0.2.0) so that
+scripts (`plugins/archreator/scaffold/scripts/`, plugin version 0.3.0) so that
 CI, which has no plugin, runs the same checks. Keep them identical to the
 plugin's; a change to a validator goes upstream first. Without the plugin
 (a session where it failed to load), read the skill from the plugin's
 repository before writing a layer document: the validators check identifiers,
-status and that the views come before the tables, not the rest of a
-document's shape.
+status, that each section's diagram comes before that section's tables, and
+that no node label carries a stereotype outside a fence marked `%% legend` —
+not the rest of a document's shape.
 
 ## Modeling depth
 

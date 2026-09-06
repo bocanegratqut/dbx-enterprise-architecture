@@ -135,4 +135,4 @@ steward and owner roles for element editing (`PLAT4`).
 
 ## Open questions
 
-Question 11 in [open-questions.md](./open-questions.md).
+Question 11 in [open-questions.md](./8_two-gates-and-readable-views.md).

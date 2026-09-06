@@ -89,5 +89,5 @@ enterprise model: every loaded element keeps the status it had in the source too
 
 ## Open questions
 
-Tracked in [open-questions.md](./open-questions.md); the ones raised by this
+Tracked in [open-questions.md](./8_two-gates-and-readable-views.md); the ones raised by this
 initiative are numbered 1 to 8 there.

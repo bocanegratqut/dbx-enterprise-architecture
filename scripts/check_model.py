@@ -15,7 +15,7 @@ this one silently. What stayed here is the judgement — the checks below
 and the exit code. Nothing is persisted: validation needs a parse, not a
 store, so this script still builds the graph, checks it and exits.
 
-Seven things are checked, per project:
+Eight things are checked, per project:
 
 - **Dangling references** — every referenced ID resolves to a definition.
   A qualified reference (`SALES.BSVC3`) resolves inside that domain's
@@ -35,15 +35,22 @@ Seven things are checked, per project:
   unavoidable copy, with a check on it. The **archetype** is deliberately not
   checked: it cannot drift away from the prefix sitting in the cell beside it,
   and the word for it is language-dependent where the prefix is not.
-- **A document with no view, or whose views trail its tables** — every
-  element document opens with its legend ("How to read this document") and
-  each section opens with its diagram, per `architecture-document-style`
-  § Document skeleton and `references/archimate-on-mermaid.md` § Diagrams come
-  first. The check is the enforceable core of both: a document that defines
-  elements carries at least one ```mermaid fence, and its first fence comes
-  before its first table. A catalogue with no picture, or a picture stapled
-  on at the end, passed silently until this check; a reader who meets three
-  tables before a diagram builds the picture themselves, and most will not.
+- **A section whose diagram trails its tables, or a document with no view at
+  all** — every element document opens with its legend ("How to read this
+  document") and **each section opens with its own diagram**, per
+  `architecture-document-style` § Document skeleton and
+  `references/archimate-on-mermaid.md` § Diagrams come first, one per section.
+  The check is the enforceable core of both: a defining document carries at
+  least one ```mermaid fence, and inside any section that has both a fence and
+  a table the fence comes first. Per section, not per document — a document
+  that stacks every diagram at the top and then runs all its prose and tables
+  underneath satisfies a document-wide test and defeats the rule.
+- **A stereotype on a content node** — a Mermaid node label carries
+  «Guillemets» only in a notation diagram, per
+  `references/archimate-on-mermaid.md` § 1. Node labels. A notation diagram
+  declares itself with `%% legend` as a comment line inside its own fence:
+  the marker is read, never the heading beside it, so the check holds in a
+  model written in any language.
 - **Undeclared status** — a document that defines an element says in its
   preamble how far it has been validated, with one of the three glyphs in
   `architecture-document-style` § Document status. A catalogue of elements
@@ -120,6 +127,72 @@ def _normalised(name: str) -> str:
     check that fails wrongly teaches people to ignore the checks that do not.
     """
     return re.sub(r"\s+", " ", name).strip().casefold()
+
+
+def _mermaid_fences(text: str) -> list[tuple[int, str]]:
+    """(1-based opening line, body) for every ```mermaid fence in the document.
+
+    Walked line by line rather than matched with one expression, so a fence
+    nested inside a longer one closes where it really closes.
+    """
+    fences: list[tuple[int, str]] = []
+    ticks = ""
+    start = 0
+    body: list[str] = []
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        opener = re.match(r"^(`{3,}|~{3,})(.*)$", line)
+        if ticks:
+            if opener and opener.group(1)[0] == ticks[0] and len(opener.group(1)) >= len(ticks):
+                if start:
+                    fences.append((start, "\n".join(body)))
+                ticks, start, body = "", 0, []
+            else:
+                body.append(line)
+        elif opener:
+            ticks = opener.group(1)
+            start = line_no if opener.group(2).strip().lower() == "mermaid" else 0
+            body = []
+    if ticks and start:
+        fences.append((start, "\n".join(body)))
+    return fences
+
+
+def _sections(text: str) -> list[tuple[str, int, int, int]]:
+    """(heading, its line, first mermaid line, first table line) per section.
+
+    A section runs from one heading to the next of any level; whatever sits
+    above the first heading is the preamble and gets an empty heading. Fenced
+    bodies are skipped, so an example table inside a code block is not the
+    section's first table.
+    """
+    fence_lines = {}
+    for open_line, body in _mermaid_fences(text):
+        fence_lines[open_line] = True
+    inside = ""
+    heading, heading_line = "", 0
+    fence_at, table_at = 0, 0
+    out: list[tuple[str, int, int, int]] = []
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        opener = re.match(r"^(`{3,}|~{3,})(.*)$", line)
+        if inside:
+            if opener and opener.group(1)[0] == inside[0] and len(opener.group(1)) >= len(inside):
+                inside = ""
+            continue
+        if opener:
+            inside = opener.group(1)
+            if line_no in fence_lines and not fence_at:
+                fence_at = line_no
+            continue
+        head = re.match(r"^ {0,3}(#{1,6})[ \t]+(.*)$", line)
+        if head:
+            out.append((heading, heading_line, fence_at, table_at))
+            heading, heading_line = head.group(2).strip(), line_no
+            fence_at, table_at = 0, 0
+            continue
+        if line.lstrip().startswith("|") and not table_at:
+            table_at = line_no
+    out.append((heading, heading_line, fence_at, table_at))
+    return out
 
 
 def check_foreign(project: Path, parsed, known: dict) -> list[str]:
@@ -232,13 +305,13 @@ def check_project(project: Path, known: dict | None = None) -> tuple[list[str], 
         elif not status:  # pragma: no cover - unreachable while count == 1
             errors.append(f"{doc}: unrecognised status glyph")
 
-    # Every element document opens with its views (`architecture-document-style`
-    # § Document skeleton; `references/archimate-on-mermaid.md` § Diagrams come
-    # first, § Every element document opens with "How to read this document").
-    # The enforceable core of both rules: a defining document carries a Mermaid
-    # fence, and the first fence precedes the first table. A layer README that
-    # only indexes other documents defines nothing and is exempt, as the rule
-    # says it is.
+    # Every element document opens with its views, and every section with its
+    # own (`architecture-document-style` § Document skeleton;
+    # `references/archimate-on-mermaid.md` § Diagrams come first, one per
+    # section). Per section rather than per document: a document that stacks
+    # every diagram at the top and runs its prose underneath passes a
+    # document-wide test while defeating the rule it claims to satisfy. A layer
+    # README that only indexes other documents defines nothing and is exempt.
     for doc in sorted(defining):
         try:
             text = (REPO_ROOT / doc).read_text(encoding="utf-8")
@@ -250,13 +323,44 @@ def check_project(project: Path, known: dict | None = None) -> tuple[list[str], 
             errors.append(
                 f"{doc}: defines elements and carries no view. Open it with the legend "
                 f"diagram (\"How to read this document\") and give each section its "
-                f"diagram before the tables, in a ```mermaid fence"
+                f"own diagram before that section's tables, in a ```mermaid fence"
             )
-        elif first_table >= 0 and fence > first_table:
+            continue
+        if first_table >= 0 and fence > first_table:
             errors.append(
                 f"{doc}: its first view comes after its first table. A document opens "
-                f"with its views; the tables that define the elements follow them"
+                f"with the legend that lets the diagrams below it drop their "
+                f"stereotypes"
             )
+        for heading, line_no, fence_line, table_line in _sections(text):
+            if fence_line and table_line and fence_line > table_line:
+                where = f"under \"{heading}\"" if heading else "in the preamble"
+                errors.append(
+                    f"{doc}:{line_no}: the view {where} comes after that section's "
+                    f"first table. A section opens with its own diagram and its "
+                    f"tables follow it"
+                )
+
+    # A stereotype belongs on a legend node and nowhere else
+    # (`references/archimate-on-mermaid.md` § 1. Node labels). A notation
+    # diagram says so with `%% legend` inside its own fence, so the marker is
+    # what is read and the heading beside it never has to be in English.
+    for doc in sorted(defining):
+        try:
+            text = (REPO_ROOT / doc).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for line_no, body in _mermaid_fences(text):
+            if re.search(r"^\s*%%\s*legend\b", body, re.M):
+                continue
+            if "\u00ab" in body:
+                errors.append(
+                    f"{doc}:{line_no}: a node label carries a \u00abstereotype\u00bb. "
+                    f"Glyph, shape and colour already say the type: write "
+                    f"`<glyph> <name> [<ID>]`. A notation diagram that means to "
+                    f"keep them declares itself with a `%% legend` line inside "
+                    f"the fence"
+                )
 
     for said, md_file in parsed.restatements:
         canonical = parsed.names.get(said.element)
