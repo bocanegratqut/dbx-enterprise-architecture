@@ -12,7 +12,7 @@ from dash import Input, Output, State, dcc, html, no_update
 
 from ea.metamodel import Registry, load_pack, pack_to_dict
 from ea.metamodel.loader import pack_from_dict
-from ea.models import ANY
+from ea.models import ANY, Forbidden
 from ea.ui import graph as gp
 from ea.ui import ids
 from ea.ui.components import alert, icon, mermaid_block, page_title
@@ -303,6 +303,15 @@ def _detail(reg: Registry, node_id: str | None):
     )
 
 
+def _reviewer_rows(ctx: AppContext) -> list[dict[str, str]]:
+    assigned = ctx.reviews.assignments()
+    return [
+        {"type_id": t.id, "type": t.name, "reviewers": ", ".join(assigned.get(t.id, []))}
+        for t in ctx.registry.pack.element_types
+        if t.active
+    ]
+
+
 def render(ctx: AppContext) -> html.Div:
     reg = ctx.registry
     grid_kw = dict(
@@ -322,7 +331,12 @@ def render(ctx: AppContext) -> html.Div:
                 f"{reg.pack.name} — {len(reg.active_types())} active types, {len(reg.pack.element_types) - len(reg.active_types())} inactive, {len(reg.pack.relationship_types)} relationship types. Edit the grids and save; export the result as a pack.",
                 dmc.Group(
                     [
-                        dmc.Button("Save changes", id=ids.MM_SAVE, leftSection=icon("tabler:device-floppy")),
+                        dmc.Button(
+                            "Save changes",
+                            id=ids.MM_SAVE,
+                            leftSection=icon("tabler:device-floppy"),
+                            disabled=not ctx.can("edit_metamodel"),
+                        ),
                         dmc.Button(
                             "Export YAML",
                             id=ids.MM_EXPORT,
@@ -387,7 +401,48 @@ def render(ctx: AppContext) -> html.Div:
                             dmc.TabsTab("Relationship types", value="rels"),
                             dmc.TabsTab("Attributes", value="attrs"),
                             dmc.TabsTab("Notation", value="notation"),
+                            dmc.TabsTab("Reviewers", value="reviewers"),
                         ]
+                    ),
+                    dmc.TabsPanel(
+                        [
+                            dmc.Text(
+                                "Who reviews a branch that touches each element type: users or groups, comma-separated. A type with nobody assigned may be approved by any Reviewer. Only an admin saves this table.",
+                                size="sm",
+                                c="dimmed",
+                                my="xs",
+                            ),
+                            dag.AgGrid(
+                                id=ids.MM_REVIEWERS_GRID,
+                                columnDefs=[
+                                    {
+                                        "field": "type_id",
+                                        "headerName": "type id",
+                                        "width": 260,
+                                        "editable": False,
+                                    },
+                                    {"field": "type", "width": 240, "editable": False},
+                                    {"field": "reviewers", "flex": 1, "editable": True},
+                                ],
+                                rowData=_reviewer_rows(ctx),
+                                getRowId="params.data.type_id",
+                                **grid_kw,
+                            ),
+                            dmc.Group(
+                                [
+                                    dmc.Button(
+                                        "Save reviewers",
+                                        id=ids.MM_REVIEWERS_SAVE,
+                                        size="xs",
+                                        leftSection=icon("tabler:device-floppy"),
+                                        disabled=not ctx.can("assign_reviewers"),
+                                    ),
+                                    html.Div(id=ids.MM_REVIEWERS_FEEDBACK),
+                                ],
+                                my="xs",
+                            ),
+                        ],
+                        value="reviewers",
                     ),
                     dmc.TabsPanel(
                         [
@@ -589,6 +644,24 @@ def _pack_from_grids(
 
 def register(app: dash.Dash) -> None:
     @app.callback(
+        Output(ids.MM_REVIEWERS_FEEDBACK, "children"),
+        Input(ids.MM_REVIEWERS_SAVE, "n_clicks"),
+        State(ids.MM_REVIEWERS_GRID, "virtualRowData"),
+        State(ids.MM_REVIEWERS_GRID, "rowData"),
+        prevent_initial_call=True,
+    )
+    def save_reviewers(n, virtual_rows, rows):
+        if not n:
+            return no_update
+        ctx = get_context()
+        try:
+            for r in virtual_rows or rows or []:
+                ctx.reviews.set_assignment(r["type_id"], (r.get("reviewers") or "").split(","), ctx.actor)
+        except Forbidden as exc:
+            return alert(str(exc), "red")
+        return alert("Reviewer assignments saved.", "green")
+
+    @app.callback(
         Output(gp.store_id("mm"), "data"), Input(ids.MM_DOMAIN_FILTER, "value"), prevent_initial_call=True
     )
     def filter_graph(domain):
@@ -702,6 +775,8 @@ def register(app: dash.Dash) -> None:
         if not n:
             return no_update, no_update
         ctx = get_context()
+        if not ctx.can("edit_metamodel"):
+            return alert(f"A {ctx.role_label()} may not edit the metamodel.", "red"), no_update
         try:
             d = _pack_from_grids(
                 ctx.registry,

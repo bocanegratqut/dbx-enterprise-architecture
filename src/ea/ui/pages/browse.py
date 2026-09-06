@@ -1,4 +1,4 @@
-"""Browse: list and search elements; create a new one."""
+"""Browse: search elements word by word, open one, create one, or bulk-edit many."""
 
 from __future__ import annotations
 
@@ -7,23 +7,54 @@ from urllib.parse import parse_qs
 import dash
 import dash_ag_grid as dag
 import dash_mantine_components as dmc
-from dash import Input, Output, State, html, no_update
+from dash import Input, Output, State, dcc, html, no_update
 
-from ea.models import ValidationError
+from ea.models import CURRENT_STATES, TARGET_STATES, Forbidden, ValidationError
+from ea.services.health import COMPLETENESS_FACETS
 from ea.ui import ids
 from ea.ui.components import alert, icon, page_title
 from ea.ui.context import AppContext, get_context
 
 COLUMNS = [
-    {"field": "element_id", "headerName": "id", "width": 200},
-    {"field": "name", "flex": 2},
-    {"field": "type", "flex": 1},
+    {
+        "field": "sel",
+        "headerName": "",
+        "checkboxSelection": True,
+        "headerCheckboxSelection": True,
+        "width": 46,
+        "pinned": "left",
+        "sortable": False,
+        "filter": False,
+        "resizable": False,
+        "valueFormatter": {"function": "''"},
+    },
+    {"field": "element_id", "headerName": "id", "width": 190},
+    {"field": "name", "flex": 2, "minWidth": 200},
+    {"field": "type", "flex": 1, "minWidth": 150},
     {"field": "status", "width": 100},
-    {"field": "current_state", "headerName": "current", "width": 120},
-    {"field": "target_state", "headerName": "target", "width": 120},
-    {"field": "lifecycle_status", "headerName": "lifecycle", "width": 110},
-    {"field": "source_system", "headerName": "source", "width": 110},
+    {"field": "current_state", "headerName": "current", "width": 110},
+    {"field": "target_state", "headerName": "target", "width": 110},
+    {"field": "lifecycle_status", "headerName": "lifecycle", "width": 100},
+    {"field": "source_system", "headerName": "source", "width": 100},
+    {
+        "field": "snippet",
+        "headerName": "matched in",
+        "flex": 2,
+        "minWidth": 220,
+        "tooltipField": "snippet",
+        "cellClassRules": {"ea-snippet": "params.value"},
+    },
 ]
+
+FACET_LABELS = {
+    "description": "without a description",
+    "links": "without a link",
+    "relationships": "without a relationship",
+    "attributes": "with a required attribute empty",
+    "target": "with an undecided target state",
+    "stale": "not updated for a while",
+    "never_updated": "never updated since the import",
+}
 
 
 def _type_options(ctx: AppContext) -> list[dict[str, str]]:
@@ -36,57 +67,114 @@ def _type_options(ctx: AppContext) -> list[dict[str, str]]:
     return opts
 
 
+def _filter_note(ctx: AppContext, q: dict) -> str:
+    facet = (q.get("missing") or q.get("facet") or [""])[0]
+    if not facet:
+        return ""
+    label = FACET_LABELS.get(facet, facet)
+    where = ""
+    if q.get("source"):
+        where = f" from source {q['source'][0]}"
+    if facet == "stale":
+        label = f"not updated for {q.get('days', ['90'])[0]} days or more"
+    return f"Showing only the elements {label}{where} (from the Health page)."
+
+
 def render(ctx: AppContext, search: str | None = None) -> html.Div:
     q = parse_qs((search or "").lstrip("?"))
     preset_type = (q.get("type") or [""])[0]
+    preset_text = (q.get("q") or [""])[0]
+    facet = (q.get("missing") or q.get("facet") or [""])[0]
+    health_filter = (
+        {"facet": facet, "source": (q.get("source") or [""])[0], "days": int((q.get("days") or ["90"])[0])}
+        if facet
+        else None
+    )
+    can_write = ctx.can("edit_content") and (ctx.on_branch() or ctx.can("edit_main"))
     return html.Div(
         [
             page_title(
                 "Browse",
-                "Search by name, id, key or description. Click a row to open the element.",
-                dmc.Button("New element", id=ids.NEW_OPEN, leftSection=icon("tabler:plus"), variant="light"),
+                "Search word by word across names, identifiers, descriptions and attributes; every word must match. Click a row to open the element, tick rows to edit many at once.",
+                dmc.Group(
+                    [
+                        dmc.Button(
+                            "Bulk edit",
+                            id=ids.BULK_OPEN,
+                            leftSection=icon("tabler:pencil"),
+                            variant="light",
+                            disabled=not can_write,
+                        ),
+                        dmc.Button(
+                            "New element",
+                            id=ids.NEW_OPEN,
+                            leftSection=icon("tabler:plus"),
+                            variant="light",
+                            disabled=not can_write,
+                        ),
+                    ],
+                    gap="xs",
+                ),
             ),
+            alert(
+                "You are a Reader on this page: browse and open, but nothing here changes the model."
+                if not ctx.can("edit_content")
+                else "You are on main: switch to a branch in the header to edit or bulk-edit."
+                if not can_write
+                else "",
+                "blue",
+            )
+            if not can_write
+            else None,
             dmc.Group(
                 [
                     dmc.Select(
                         id=ids.BROWSE_TYPE,
                         data=_type_options(ctx),
                         value=preset_type,
-                        w=320,
+                        w=300,
                         searchable=True,
                         clearable=False,
                     ),
                     dmc.TextInput(
                         id=ids.BROWSE_TEXT,
-                        placeholder="Search…",
+                        placeholder="Search words…",
                         leftSection=icon("tabler:search"),
                         debounce=400,
-                        w=320,
+                        w=340,
+                        value=preset_text,
                     ),
                     dmc.Select(
                         id=ids.BROWSE_STATUS,
                         data=[{"value": "", "label": "Any status"}, "draft", "approved", "retired"],
                         value="",
-                        w=150,
+                        w=140,
                     ),
                     dmc.Text(id=ids.BROWSE_COUNT, size="sm", c="dimmed"),
                 ],
                 gap="sm",
-                mb="sm",
+                mb="xs",
             ),
+            html.Div(
+                alert(_filter_note(ctx, q), "yellow") if health_filter else None, id=ids.BROWSE_FILTER_NOTE
+            ),
+            dcc.Store(id=ids.BROWSE_SELECTED, data=health_filter),
             dag.AgGrid(
                 id=ids.BROWSE_GRID,
                 columnDefs=COLUMNS,
                 rowData=[],
+                getRowId="params.data.element_id",
                 defaultColDef={"sortable": True, "filter": True, "resizable": True},
                 dashGridOptions={
-                    "rowSelection": "single",
+                    "rowSelection": "multiple",
+                    "suppressRowClickSelection": True,
                     "animateRows": False,
                     "pagination": True,
                     "paginationPageSize": 50,
+                    "tooltipShowDelay": 300,
                 },
                 className="ag-theme-alpine",
-                style={"height": "70vh", "width": "100%"},
+                style={"height": "68vh", "width": "100%"},
             ),
             dmc.Modal(
                 id=ids.NEW_MODAL,
@@ -109,8 +197,82 @@ def render(ctx: AppContext, search: str | None = None) -> html.Div:
                     ]
                 ),
             ),
+            dmc.Modal(
+                id=ids.BULK_MODAL,
+                title="Bulk edit the ticked elements",
+                size="lg",
+                children=dmc.Stack(
+                    [
+                        dmc.Text(
+                            "A field left empty is not touched. Every element is updated on its own and audited; "
+                            "one that refuses the change does not stop the others.",
+                            size="sm",
+                            c="dimmed",
+                        ),
+                        dmc.SimpleGrid(
+                            [
+                                dmc.Select(
+                                    id=ids.BULK_STATUS,
+                                    label="Status",
+                                    data=["draft", "approved", "retired"],
+                                    clearable=True,
+                                ),
+                                dmc.Select(
+                                    id=ids.BULK_CURRENT,
+                                    label="Current state",
+                                    data=list(CURRENT_STATES),
+                                    clearable=True,
+                                ),
+                                dmc.Select(
+                                    id=ids.BULK_TARGET,
+                                    label="Target state",
+                                    data=list(TARGET_STATES),
+                                    clearable=True,
+                                ),
+                                dmc.Select(
+                                    id=ids.BULK_WP,
+                                    label="Work package",
+                                    data=ctx.work_package_options(),
+                                    searchable=True,
+                                    clearable=True,
+                                ),
+                                dmc.TextInput(id=ids.BULK_NOTE, label="Target note"),
+                                dmc.TextInput(id=ids.BULK_LIFECYCLE, label="Lifecycle status"),
+                                dmc.TextInput(id=ids.BULK_ATTR_NAME, label="Attribute", placeholder="name"),
+                                dmc.TextInput(id=ids.BULK_ATTR_VALUE, label="Attribute value"),
+                            ],
+                            cols={"base": 1, "md": 2},
+                        ),
+                        html.Div(id=ids.BULK_FEEDBACK),
+                        dmc.Group(
+                            [
+                                dmc.Button(
+                                    "Apply to the ticked rows",
+                                    id=ids.BULK_SAVE,
+                                    leftSection=icon("tabler:pencil"),
+                                )
+                            ],
+                            justify="flex-end",
+                        ),
+                    ]
+                ),
+            ),
         ]
     )
+
+
+def _load(ctx: AppContext, type_id, text, status, health_filter):
+    hits = ctx.search.search(text or None, type_id or None, status or None, limit=ctx.settings.max_rows)
+    total = ctx.search.count(text or None, type_id or None, status or None)
+    rows = ctx.search.rows(hits, ctx.registry)
+    if health_filter and health_filter.get("facet"):
+        f = health_filter
+        keep = ctx.health.ids_for(
+            f["facet"], type_id or None, f.get("source") or None, int(f.get("days") or 90)
+        )
+        rows = [r for r in rows if r["element_id"] in keep]
+        total = len(rows)
+    return rows, total
 
 
 def register(app: dash.Dash) -> None:
@@ -120,40 +282,108 @@ def register(app: dash.Dash) -> None:
         Input(ids.BROWSE_TYPE, "value"),
         Input(ids.BROWSE_TEXT, "value"),
         Input(ids.BROWSE_STATUS, "value"),
+        State(ids.BROWSE_SELECTED, "data"),
     )
-    def load_rows(type_id, text, status):
+    def load_rows(type_id, text, status, health_filter):
         ctx = get_context()
-        rows = ctx.repo.search(text or None, type_id or None, status or None, limit=ctx.settings.max_rows)
-        total = ctx.backend.count_elements(type_id or None, text or None)
-        data = [
-            {
-                "element_id": e.element_id,
-                "name": e.name,
-                "type": ctx.registry.types[e.type_id].name if e.type_id in ctx.registry.types else e.type_id,
-                "status": e.status,
-                "current_state": e.current_state,
-                "target_state": e.target_state,
-                "lifecycle_status": e.lifecycle_status,
-                "source_system": e.source_system,
-            }
-            for e in rows
-        ]
-        return data, f"{len(data)} of {total}"
+        rows, total = _load(ctx, type_id, text, status, health_filter)
+        return rows, f"{len(rows)} of {total}"
 
     @app.callback(
         Output(ids.URL, "pathname", allow_duplicate=True),
         Output(ids.URL, "search", allow_duplicate=True),
-        Input(ids.BROWSE_GRID, "selectedRows"),
+        Input(ids.BROWSE_GRID, "cellClicked"),
         prevent_initial_call=True,
     )
-    def open_selected(rows):
-        if not rows:
+    def open_clicked(cell):
+        if not cell or cell.get("colId") == "sel" or not cell.get("rowId"):
             return no_update, no_update
-        return f"/element/{rows[0]['element_id']}", ""
+        return f"/element/{cell['rowId']}", ""
 
     @app.callback(Output(ids.NEW_MODAL, "opened"), Input(ids.NEW_OPEN, "n_clicks"), prevent_initial_call=True)
     def open_modal(n):
         return bool(n)
+
+    @app.callback(
+        Output(ids.BULK_MODAL, "opened"),
+        Output(ids.BULK_FEEDBACK, "children", allow_duplicate=True),
+        Input(ids.BULK_OPEN, "n_clicks"),
+        State(ids.BROWSE_GRID, "selectedRows"),
+        prevent_initial_call=True,
+    )
+    def open_bulk(n, selected):
+        if not n:
+            return no_update, no_update
+        if not selected:
+            return False, no_update
+        return True, dmc.Text(f"{len(selected)} element(s) ticked.", size="sm", c="dimmed")
+
+    @app.callback(
+        Output(ids.BULK_FEEDBACK, "children"),
+        Output(ids.BROWSE_GRID, "rowData", allow_duplicate=True),
+        Input(ids.BULK_SAVE, "n_clicks"),
+        State(ids.BROWSE_GRID, "selectedRows"),
+        State(ids.BULK_STATUS, "value"),
+        State(ids.BULK_CURRENT, "value"),
+        State(ids.BULK_TARGET, "value"),
+        State(ids.BULK_WP, "value"),
+        State(ids.BULK_NOTE, "value"),
+        State(ids.BULK_LIFECYCLE, "value"),
+        State(ids.BULK_ATTR_NAME, "value"),
+        State(ids.BULK_ATTR_VALUE, "value"),
+        State(ids.BROWSE_TYPE, "value"),
+        State(ids.BROWSE_TEXT, "value"),
+        State(ids.BROWSE_STATUS, "value"),
+        State(ids.BROWSE_SELECTED, "data"),
+        prevent_initial_call=True,
+        running=[(Output(ids.BULK_SAVE, "loading"), True, False)],
+    )
+    def bulk_save(
+        n,
+        selected,
+        status,
+        current,
+        target,
+        wp,
+        note,
+        lifecycle,
+        attr_name,
+        attr_value,
+        type_id,
+        text,
+        st,
+        hf,
+    ):
+        if not n:
+            return no_update, no_update
+        ctx = get_context()
+        ids_ = [r["element_id"] for r in (selected or [])]
+        if not ids_:
+            return alert("Tick at least one row first.", "yellow"), no_update
+        fields = {
+            "status": status,
+            "current_state": current,
+            "target_state": target,
+            "target_work_package": wp,
+            "target_note": note,
+            "lifecycle_status": lifecycle,
+        }
+        attribute = (attr_name.strip(), attr_value) if (attr_name or "").strip() else None
+        if not any(fields.values()) and not attribute:
+            return alert("Fill in at least one field.", "yellow"), no_update
+        try:
+            out = ctx.repo.bulk_update(ids_, ctx.actor, fields, attribute)
+        except (Forbidden, ValidationError) as exc:
+            msg = "; ".join(str(i) for i in exc.issues) if isinstance(exc, ValidationError) else str(exc)
+            return alert(f"Not applied: {msg}", "red"), no_update
+        ctx.graph.invalidate()
+        rows, _ = _load(ctx, type_id, text, st, hf)
+        msg = f"Updated {len(out['updated'])} element(s)"
+        if out["refused"]:
+            msg += "; refused: " + "; ".join(
+                f"{r['element_id']} ({r['reason'][:80]})" for r in out["refused"][:5]
+            )
+        return alert(msg + ".", "green" if not out["refused"] else "yellow"), rows
 
     @app.callback(
         Output(ids.NEW_FEEDBACK, "children"),
@@ -176,5 +406,10 @@ def register(app: dash.Dash) -> None:
             e = ctx.repo.create_element(type_id, name, ctx.actor, description_md=desc or "")
         except ValidationError as exc:
             return alert("; ".join(str(i) for i in exc.issues), "red"), no_update, no_update
+        except Forbidden as exc:
+            return alert(str(exc), "red"), no_update, no_update
         ctx.graph.invalidate()
         return no_update, f"/element/{e.element_id}", ""
+
+
+_ = COMPLETENESS_FACETS

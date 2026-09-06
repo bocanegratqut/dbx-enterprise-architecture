@@ -15,17 +15,30 @@ from flask import session
 
 from ea.backend.branching import MAIN, set_branch
 from ea.config import ROOT
-from ea.models import ConflictError, NotFoundError
+from ea.models import ConflictError, Forbidden, NotFoundError
+from ea.services.roles import set_role
 from ea.ui import graph, ids, layout
 from ea.ui.components import alert
-from ea.ui.context import get_context
-from ea.ui.pages import ask, branches, browse, element, home, impact, import_page, metamodel, propose, target
+from ea.ui.context import PERSONAS, get_context
+from ea.ui.pages import (
+    ask,
+    branches,
+    browse,
+    element,
+    health,
+    home,
+    impact,
+    import_page,
+    metamodel,
+    propose,
+    target,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
 
 APP_TITLE = "EA Repository"
-PAGES = {"browse", "metamodel", "impact", "import", "ask", "branches", "target", "propose"}
+PAGES = {"browse", "metamodel", "impact", "import", "ask", "branches", "target", "propose", "health"}
 
 
 def parse_path(pathname: str | None) -> tuple[str, str | None]:
@@ -63,18 +76,21 @@ def create_app() -> dash.Dash:
     app.server.secret_key = os.environ.get("EA_SECRET_KEY") or secrets.token_hex(32)
 
     @app.server.before_request
-    def _branch_from_session() -> None:
+    def _branch_and_role_from_session() -> None:
+        ctx = get_context()
         branch = session_branch()
-        if branch != MAIN and get_context().backend.get_branch(branch) is None:
+        if branch != MAIN and ctx.backend.get_branch(branch) is None:
             branch = MAIN
         set_branch(branch)
+        set_role(ctx.current_user().role)
 
     def _shell():
         ctx = get_context()
         current = ctx.branch()
         b = ctx.backend.get_branch(current) if current != MAIN else None
-        if b is not None and b.status != "open":
+        if b is not None and b.status in ("merged", "abandoned"):
             current = MAIN
+        user = ctx.current_user()
         return layout.shell(
             APP_TITLE,
             ctx.registry.pack.name,
@@ -82,6 +98,10 @@ def create_app() -> dash.Dash:
             current,
             b.changes if b is not None else None,
             ctx.work_package_options(),
+            role=user.role,
+            display_name=user.display_name,
+            persona=ctx.persona() if ctx.debug_personas() else None,
+            can_create_branch=ctx.can("create_branch"),
         )
 
     app.layout = _shell  # a function: the header reflects the session's branch on every page load
@@ -114,6 +134,8 @@ def create_app() -> dash.Dash:
                 return target.render(ctx, search)
             if page == "propose":
                 return propose.render(ctx)
+            if page == "health":
+                return health.render(ctx)
             return home.render(ctx)
         except Exception as exc:  # noqa: BLE001 — a page error must not blank the shell
             log.exception("page %s failed", page)
@@ -147,6 +169,29 @@ def create_app() -> dash.Dash:
     def open_new_branch(n):
         return bool(n)
 
+    if get_context().debug_personas():
+
+        @app.callback(
+            Output(ids.NAV_VERSION, "data", allow_duplicate=True),
+            Output(ids.ROLE_BADGE, "children"),
+            Output(ids.BRANCH_NEW_OPEN, "disabled"),
+            Input(ids.PERSONA_SELECT, "value"),
+            State(ids.NAV_VERSION, "data"),
+            prevent_initial_call=True,
+        )
+        def switch_persona(value, version):
+            """Debug only: impersonate a role, kept in the session; the page re-renders with its permissions."""
+            persona = value if value in PERSONAS else "admin"
+            changed = persona != (session.get("persona") or "admin")
+            session["persona"] = persona
+            user = PERSONAS[persona]
+            set_role(user.role)
+            return (
+                int(version or 0) + 1 if changed else no_update,
+                layout.role_badge(user.role, user.display_name),
+                not get_context().can("create_branch"),
+            )
+
     @app.callback(
         Output(ids.BRANCH_NEW_FEEDBACK, "children"),
         Output(ids.BRANCH_NEW_MODAL, "opened", allow_duplicate=True),
@@ -167,7 +212,7 @@ def create_app() -> dash.Dash:
             return alert("A branch needs a name.", "yellow"), no_update, no_update, no_update
         try:
             b = ctx.branches.create(name.strip(), ctx.actor, desc or "", wp or "")
-        except (ConflictError, NotFoundError, ValueError) as exc:
+        except (ConflictError, NotFoundError, ValueError, Forbidden) as exc:
             return alert(str(exc), "red"), no_update, no_update, no_update
         return None, False, ctx.branch_options(), b.branch_id
 
@@ -189,6 +234,6 @@ def create_app() -> dash.Dash:
     )
 
     graph.register(app)
-    for module in (browse, element, metamodel, impact, import_page, ask, branches, target, propose):
+    for module in (browse, element, metamodel, impact, import_page, ask, branches, target, propose, health):
         module.register(app)
     return app

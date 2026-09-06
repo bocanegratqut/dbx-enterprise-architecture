@@ -9,7 +9,15 @@ import dash_mantine_components as dmc
 from dash import ALL, Input, Output, State, dcc, html, no_update
 from dash import ctx as dash_ctx
 
-from ea.models import CURRENT_STATES, TARGET_STATES, ConflictError, Link, NotFoundError, ValidationError
+from ea.models import (
+    CURRENT_STATES,
+    TARGET_STATES,
+    ConflictError,
+    Forbidden,
+    Link,
+    NotFoundError,
+    ValidationError,
+)
 from ea.services.target import CURRENT_STYLE, TARGET_STYLE, state_label
 from ea.ui import graph as gp
 from ea.ui import ids
@@ -155,6 +163,7 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
     except NotFoundError:
         return html.Div([dmc.Title("Not found", order=2), dmc.Text(f"No element with id {element_id}.")])
     e, t = d["element"], d["type"]
+    can_write = ctx.can("edit_content") and (ctx.on_branch() or ctx.can("edit_main"))
     attrs = ctx.registry.attributes_for(e.type_id)
     own = [a for a in attrs if a.type_id == e.type_id or (a.type_id and a.type_id != e.type_id)]
     common = [a for a in attrs if a.type_id is None]
@@ -323,7 +332,23 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
                 ),
                 html.Div(id=ids.EL_SAVE_FEEDBACK),
                 dmc.Group(
-                    [dmc.Button("Save", id=ids.EL_SAVE, leftSection=icon("tabler:device-floppy"))],
+                    [
+                        dmc.Text(
+                            "Switch to a branch in the header to edit."
+                            if ctx.can("edit_content") and not can_write
+                            else f"A {ctx.role_label()} may not edit."
+                            if not can_write
+                            else "",
+                            size="xs",
+                            c="dimmed",
+                        ),
+                        dmc.Button(
+                            "Save",
+                            id=ids.EL_SAVE,
+                            leftSection=icon("tabler:device-floppy"),
+                            disabled=not can_write,
+                        ),
+                    ],
                     justify="flex-end",
                 ),
             ]
@@ -370,7 +395,12 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
                                     clearable=True,
                                     disabled=True,
                                 ),
-                                dmc.Button("Add", id=ids.EL_REL_ADD, leftSection=icon("tabler:link-plus")),
+                                dmc.Button(
+                                    "Add",
+                                    id=ids.EL_REL_ADD,
+                                    leftSection=icon("tabler:link-plus"),
+                                    disabled=not can_write,
+                                ),
                             ],
                             gap="sm",
                             align="flex-end",
@@ -545,6 +575,8 @@ def register(app: dash.Dash) -> None:
             )
         except ValidationError as exc:
             return alert("; ".join(str(i) for i in exc.issues), "red"), no_update, no_update
+        except Forbidden as exc:
+            return alert(str(exc), "red"), no_update, no_update
         ctx.graph.invalidate()
         return alert(f"Saved version {e.version}.", "green"), e.version, _history_table(ctx, element_id)
 
@@ -616,7 +648,10 @@ def register(app: dash.Dash) -> None:
         if isinstance(trig, dict) and trig.get("type") == ids.EL_REL_DELETE:
             if not any(n_del):
                 return no_update, no_update
-            ctx.repo.remove_relationship(trig["id"], ctx.actor)
+            try:
+                ctx.repo.remove_relationship(trig["id"], ctx.actor)
+            except Forbidden as exc:
+                return alert(str(exc), "red"), no_update
             ctx.graph.invalidate()
             return alert("Relationship removed.", "green"), _rel_tables(ctx, element_id)
         if not n_add:
@@ -628,6 +663,8 @@ def register(app: dash.Dash) -> None:
             ctx.repo.add_relationship(rel_type_id, src, dst, ctx.actor, qualifier or "")
         except ValidationError as exc:
             return alert("; ".join(str(i) for i in exc.issues), "red"), no_update
+        except Forbidden as exc:
+            return alert(str(exc), "red"), no_update
         ctx.graph.invalidate()
         return alert("Relationship added.", "green"), _rel_tables(ctx, element_id)
 

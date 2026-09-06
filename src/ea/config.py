@@ -26,6 +26,7 @@ class Settings:
     databricks_warehouse_id: str = ""
     databricks_catalog: str = ""
     databricks_schema: str = "ea"
+    role_groups: str = ""  # admin=grp1,grp2;architect=grp3;reviewer=grp4 (decision 0008)
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -42,4 +43,5 @@ class Settings:
             databricks_warehouse_id=env.get("DATABRICKS_WAREHOUSE_ID", ""),
             databricks_catalog=env.get("EA_CATALOG", ""),
             databricks_schema=env.get("EA_SCHEMA", "ea"),
+            role_groups=env.get("EA_ROLE_GROUPS", ""),
         )

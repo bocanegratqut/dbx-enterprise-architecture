@@ -9,6 +9,7 @@ import typer
 
 from ea.backend.branching import MAIN, set_branch
 from ea.config import Settings
+from ea.services.roles import set_role
 
 app = typer.Typer(
     help="EA repository — a generic, metamodel-driven enterprise architecture repository.",
@@ -29,8 +30,15 @@ def main(
         envvar="EA_BRANCH",
         help="Work on this branch instead of main (every read and write of the command honours it).",
     ),
+    role: str = typer.Option(
+        None,
+        "--as",
+        envvar="EA_ROLE",
+        help="Run as this role: reader, reviewer, architect, admin (default) or agent.",
+    ),
 ):
     set_branch(branch or MAIN)
+    set_role(role)
 
 
 def _ctx(settings: Settings | None = None):
@@ -141,11 +149,79 @@ def stats():
 
 @app.command()
 def find(text: str, type_id: str = typer.Option(None, "--type"), limit: int = 50):
-    """Search elements by name, key, id or description."""
-    _, _, registry, repo, _ = _ctx()
+    """Search elements: every word must match in the name, key, id, description or attributes; ranked."""
+    from ea.services import SearchService
+
+    _, backend, registry, *_ = _ctx()
     t = registry.resolve_type(type_id) if type_id else None
-    for e in repo.search(text, t.id if t else None, limit=limit):
-        typer.echo(f"{e.element_id:24s} {e.type_id:32s} {e.name}")
+    for h in SearchService(backend, registry).search(text, t.id if t else None, limit=limit):
+        e = h.element
+        where = f"  [{h.matched_in}: {h.snippet[:60]}]" if h.matched_in and h.matched_in != "name" else ""
+        typer.echo(f"{e.element_id:24s} {e.type_id:32s} {e.name}{where}")
+
+
+@app.command("set")
+def set_cmd(
+    element_ids: list[str],
+    status: str = typer.Option(None, help="draft, approved or retired"),
+    lifecycle: str = typer.Option(None, help="lifecycle text"),
+    current_state: str = typer.Option(None, "--current-state"),
+    target_state: str = typer.Option(None, "--target-state"),
+    work_package: str = typer.Option(None, "--work-package", "-w"),
+    note: str = typer.Option(None, "--note"),
+    attr: str = typer.Option(None, help="one attribute as name=value"),
+    actor: str = typer.Option("cli"),
+):
+    """The same change on many elements at once (bulk edit), on the current branch."""
+    _, _, _, repo, _ = _ctx()
+    fields = {
+        "status": status,
+        "lifecycle_status": lifecycle,
+        "current_state": current_state,
+        "target_state": target_state,
+        "target_work_package": work_package,
+        "target_note": note,
+    }
+    attribute = None
+    if attr:
+        name, _, value = attr.partition("=")
+        attribute = (name.strip(), value)
+    out = repo.bulk_update(element_ids, actor, fields, attribute)
+    typer.echo(f"updated {len(out['updated'])}, refused {len(out['refused'])}")
+    for r in out["refused"]:
+        typer.echo(f"  {r['element_id']}: {r['reason']}")
+
+
+@app.command()
+def health(fmt: str = typer.Option("table", help="table or md")):
+    """Freshness per source system and completeness per element type."""
+    from ea.services import HealthService
+
+    _, backend, registry, *_ = _ctx()
+    svc = HealthService(backend, registry)
+    fresh, comp = svc.freshness(), svc.completeness()
+    sep = "| " if fmt == "md" else ""
+    typer.echo(f"Freshness (as of {fresh['as_of']})")
+    if fmt == "md":
+        typer.echo(
+            "| source | elements | relationships | last updated | stale 30 d | stale 90 d | stale 180 d | never updated |"
+        )
+        typer.echo("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    for r in fresh["sources"]:
+        typer.echo(
+            f"{sep}{r['source']:20s} {sep}{r['elements']:6d} {sep}{r['relationships']:6d} {sep}{r['last_updated']:16s} "
+            f"{sep}{r['stale_30']:5d} {sep}{r['stale_90']:5d} {sep}{r['stale_180']:5d} {sep}{r['never_updated']:5d}{' |' if fmt == 'md' else ''}"
+        )
+    typer.echo("")
+    typer.echo(f"Completeness ({comp['elements']} elements)")
+    if fmt == "md":
+        typer.echo("| type | elements | description | links | relationships | attributes | target decided |")
+        typer.echo("| --- | --- | --- | --- | --- | --- | --- |")
+    for r in comp["types"]:
+        typer.echo(
+            f"{sep}{r['type'][:32]:32s} {sep}{r['elements']:5d} {sep}{r['description_pct']:3d}% {sep}{r['links_pct']:3d}% "
+            f"{sep}{r['relationships_pct']:3d}% {sep}{r['attributes_pct']:3d}% {sep}{r['target_pct']:3d}%{' |' if fmt == 'md' else ''}"
+        )
 
 
 @app.command()
@@ -352,12 +428,90 @@ def branch_merge(
     )
 
 
+@branch_app.command("review")
+def branch_review(branch_id: str, actor: str = typer.Option("cli")):
+    """Request a review: the branch freezes and the reviewers of every type it touches are named."""
+    from ea.services import ReviewService
+
+    backend, registry, svc = _branches()
+    reviews = ReviewService(backend, registry, svc)
+    reviews.request(branch_id, actor)
+    for r in reviews.requirements(branch_id):
+        who = ", ".join(r["reviewers"]) if r["reviewers"] else "any reviewer"
+        typer.echo(f"  {r['type']:36s} reviewers: {who}")
+    typer.echo(f"branch '{branch_id}' is in review")
+
+
+@branch_app.command("approve")
+def branch_approve(
+    branch_id: str,
+    types: str = typer.Option(
+        None, help="comma-separated type ids to approve (default: every type you cover)"
+    ),
+    comment: str = typer.Option(""),
+    actor: str = typer.Option("cli"),
+    groups: str = typer.Option("", help="comma-separated groups the actor belongs to"),
+):
+    """Approve the branch for the types you review; it is approved once every touched type is."""
+    from ea.services import ReviewService
+
+    backend, registry, svc = _branches()
+    out = ReviewService(backend, registry, svc).approve(
+        branch_id, actor, types.split(",") if types else None, comment, [g for g in groups.split(",") if g]
+    )
+    typer.echo(f"approved {', '.join(out['approved_types'])}; pending {', '.join(out['pending']) or 'none'}")
+    if out["complete"]:
+        typer.echo(f"branch '{branch_id}' is approved")
+
+
+@branch_app.command("send-back")
+def branch_send_back(
+    branch_id: str,
+    comment: str = typer.Option(..., help="what must change"),
+    actor: str = typer.Option("cli"),
+):
+    """Send the branch back to its author with a comment; it reopens for editing."""
+    from ea.services import ReviewService
+
+    backend, registry, svc = _branches()
+    ReviewService(backend, registry, svc).send_back(branch_id, actor, comment)
+    typer.echo(f"branch '{branch_id}' sent back")
+
+
 @branch_app.command("abandon")
 def branch_abandon(branch_id: str, actor: str = typer.Option("cli")):
     """Close the branch and discard its rows; main is untouched."""
     _, _, svc = _branches()
     svc.abandon(branch_id, actor)
     typer.echo(f"branch '{branch_id}' abandoned")
+
+
+reviewers_app = typer.Typer(help="Who reviews which element type.", no_args_is_help=True)
+app.add_typer(reviewers_app, name="reviewers")
+
+
+@reviewers_app.command("list")
+def reviewers_list():
+    """The reviewer assignments per element type."""
+    from ea.services import ReviewService
+
+    backend, registry, svc = _branches()
+    rows = ReviewService(backend, registry, svc).assignments()
+    if not rows:
+        typer.echo("no reviewers assigned: any reviewer may approve any type")
+    for type_id, who in rows.items():
+        typer.echo(f"{type_id:36s} {', '.join(who)}")
+
+
+@reviewers_app.command("set")
+def reviewers_set(type_id: str, reviewers: str, actor: str = typer.Option("cli")):
+    """Assign reviewers (comma-separated users or groups) to an element type; an empty string clears it."""
+    from ea.services import ReviewService
+
+    backend, registry, svc = _branches()
+    t = registry.resolve_type(type_id)
+    ReviewService(backend, registry, svc).set_assignment(t.id if t else type_id, reviewers.split(","), actor)
+    typer.echo(f"reviewers of {t.id if t else type_id}: {reviewers or '(any reviewer)'}")
 
 
 @app.command()

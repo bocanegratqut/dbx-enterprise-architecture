@@ -21,6 +21,49 @@ loaded first with the curriculum slice of the institution's content. The
 business case that started it and its review are held privately by the product
 owner; [`reference/`](./reference/README.md) says what was derived from them.
 
+## The model at a glance
+
+```mermaid
+flowchart TB
+  subgraph S["1 Strategy"]
+    vs[["⇉ «Value Stream» From design to governed architecture knowledge [VS1]"]]:::strategy
+  end
+  subgraph B["2 Business"]
+    gov(["⚙ «Business Service» Governed change [BSVC2]"]):::business
+    know(["⚙ «Business Service» Architecture knowledge [BSVC1]"]):::business
+    arch["◍ «Business Role» Architect [ROLE2]"]:::business
+    rev["◍ «Business Role» Reviewer [ROLE3]"]:::business
+  end
+  subgraph I["3 Information"]
+    el["▤ «Data Object» Element [DOBJ2.1]"]:::application
+    br["▤ «Data Object» Branch [DOBJ2.5]"]:::application
+  end
+  subgraph A["4 Application"]
+    ui["▭ «Application Component» Web application [ACMP6]"]:::application
+    store["▭ «Application Component» Graph store [ACMP2]"]:::application
+  end
+  subgraph T["5 Technology"]
+    py["⬡ «System Software» Python process [NODE1.1]"]:::technology
+    duck["⬡ «System Software» DuckDB engine [NODE1.2]"]:::technology
+  end
+  vs -->|realized by| gov
+  vs -->|realized by| know
+  arch --> gov
+  rev --> gov
+  gov --> br
+  know --> el
+  br -->|overlays| el
+  ui --> store
+  store -->|persists| el
+  py -->|runs| ui
+  duck -->|runs| store
+
+  classDef strategy fill:#f5deaa,stroke:#c8a24a,color:#333
+  classDef business fill:#fffbb5,stroke:#b8a200,color:#333
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
+```
+
 ## What is modeled, and what is not
 
 **One row per layer, and every row says something.** A layer with no file yet
@@ -29,11 +72,11 @@ is a stated fact — `Out of scope`, `External`, or a named `Gap` — not a sile
 | # | Layer | The question it answers | Status |
 | - | ----- | ----------------------- | ------ |
 | 0 | Business design | Who are the customers, and how does each offering pay? | `Out of scope` — this project models an application, not an organization |
-| 1 | Strategy | Why does this exist, and what must it be able to do? | `Local` — [1_strategy/](./1_strategy/README.md): motivation only, as Depth 1 asks; `◐` until the Understanding gate |
-| 2 | Business | Who does what, and which services are offered? | `Gap` — the people and roles around the repository (owner, information architect, solution architects, stewards) are named in the scope documents, and the four application roles (Admin, Architect, Reader, Agent) are documented in [scope/3_admin-notation-and-arrangeable-views.md](./scope/3_admin-notation-and-arrangeable-views.md) without being enforced; none is modeled. Written when the PoC has users and a steward workflow (plateau `PLAT4`) |
+| 1 | Strategy | Why does this exist, and what must it be able to do? | `Local` — [1_strategy/](./1_strategy/README.md): motivation, and the one value stream with the capability it realises; `◐` until the Understanding gate |
+| 2 | Business | Who does what, and which services are offered? | `Local` — [2_business/](./2_business/README.md): the actors and the five roles the application enforces, the three business services and the processes that deliver them (the governed change process among them); `◐` |
 | 3 | Information | What information exists, and where does it live? | `Local` — [3_information/](./3_information/README.md): the metamodel, the architecture graph, the exchange files and the audit trail; `◐` |
 | 4 | Application | Which software realizes each business service? | `Local` — [4_application/](./4_application/README.md): services and components, every component pointing at its module; `◐` |
-| 5 | Technology | What runs it all — runtimes, build, hosting? | `Gap` — locally a Python process over a DuckDB file; the Databricks Apps and Delta runtime is described in [6_transition/](./6_transition/README.md) and becomes a layer once it runs (plateau `PLAT2`) |
+| 5 | Technology | What runs it all — runtimes, build, hosting? | `Local` — [5_technology/](./5_technology/README.md): one Python process, the embedded DuckDB engine, the browser, the artifacts; the Databricks runtime drawn dashed until it runs (plateau `PLAT2`); `◐` |
 | — | Transition | Where is this going, and in what order? | `Local` — [6_transition/](./6_transition/README.md): six plateaus from the local PoC to the current EA tool retired |
 
 ## How deeply this project models itself
@@ -63,10 +106,15 @@ three marks:
 | `●` | **Validated** | Rely on it. Confirmed on a named date, at a named gate |
 
 **A draft catalogue is not an architecture draft.** Every layer document in this
-model is `◐` today: it records what the owner decided in the review
-conversation of 2026-09-05 and what the code does, and it waits for the
+model is `◐` today: it records what the owner decided in the conversations of
+2026-09-05 and 2026-09-06 and what the code does, and it waits for the
 information architect's Understanding gate (see
 [scope/1_curriculum-poc.md](./scope/1_curriculum-poc.md)).
+
+**Every layer document opens with its views.** One to three Mermaid diagrams
+in the archreator notation come before the catalogue tables they are drawn
+from, so a reader sees the shape before the rows; the tables stay the source
+of every relationship (a diagram is a rendering, never the store).
 
 ## Conventions
 

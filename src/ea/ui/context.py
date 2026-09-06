@@ -1,4 +1,4 @@
-"""One application context: settings, store, registry, services, agent, current user."""
+"""One application context: settings, store, registry, services, agent, current user and role."""
 
 from __future__ import annotations
 
@@ -14,11 +14,34 @@ from ea.backend.branching import MAIN, current_branch
 from ea.config import Settings
 from ea.metamodel import Registry, load_pack
 from ea.models import User
-from ea.services import BranchService, GraphService, RepositoryService, TargetStateService
+from ea.services import (
+    BranchService,
+    GraphService,
+    HealthService,
+    RepositoryService,
+    ReviewService,
+    SearchService,
+    TargetStateService,
+)
+from ea.services.roles import LABELS, allowed, current_role, parse_role_groups, role_from_groups
 
 log = logging.getLogger(__name__)
 _lock = threading.Lock()
 _context: AppContext | None = None
+
+# The debug personas of mock authentication: a fixed name and group per role, so a review can be
+# walked locally by switching persona (decision 0008). Never used on the platform.
+PERSONAS = {
+    "admin": User("admin@example.edu", "Ada (Admin)", ["ea-admins"], "admin"),
+    "architect": User("architect@example.edu", "Arjun (Architect)", ["ea-architects"], "architect"),
+    "reviewer": User("reviewer@example.edu", "Rae (Reviewer)", ["ea-reviewers"], "reviewer"),
+    "reader": User("reader@example.edu", "Ren (Reader)", [], "reader"),
+    "agent": User("assistant@example.edu", "The assistant (Agent)", [], "agent"),
+}
+
+
+def persona_user(persona: str) -> User:
+    return PERSONAS.get(persona, PERSONAS["admin"])
 
 
 @dataclass
@@ -30,14 +53,23 @@ class AppContext:
     graph: GraphService = field(init=False)
     branches: BranchService = field(init=False)
     target: TargetStateService = field(init=False)
+    search: SearchService = field(init=False)
+    health: HealthService = field(init=False)
+    reviews: ReviewService = field(init=False)
     _agent: Agent | None = field(default=None, init=False)
     _proposals: ProposalService | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
+        self._wire()
+
+    def _wire(self) -> None:
         self.repo = RepositoryService(self.backend, self.registry)
         self.graph = GraphService(self.backend, self.registry)
         self.branches = BranchService(self.backend, self.registry)
         self.target = TargetStateService(self.backend, self.registry)
+        self.search = SearchService(self.backend, self.registry)
+        self.health = HealthService(self.backend, self.registry)
+        self.reviews = ReviewService(self.backend, self.registry, self.branches)
 
     @property
     def agent(self) -> Agent:
@@ -63,10 +95,7 @@ class AppContext:
         """After the metamodel changed: re-read the stored pack and rebuild everything that depends on it."""
         pack = self.backend.load_pack(self.registry.pack.id) or self.registry.pack
         self.registry = Registry(pack)
-        self.repo = RepositoryService(self.backend, self.registry)
-        self.graph = GraphService(self.backend, self.registry)
-        self.branches = BranchService(self.backend, self.registry)
-        self.target = TargetStateService(self.backend, self.registry)
+        self._wire()
         self._agent = None
         self._proposals = None
         return self.registry
@@ -82,8 +111,10 @@ class AppContext:
     def branch_options(self) -> list[dict[str, str]]:
         """`main` and the open branches, for the header selector."""
         opts = [{"value": MAIN, "label": "main"}]
-        for b in self.branches.open():
-            opts.append({"value": b.branch_id, "label": f"{b.name} ({b.changes})"})
+        for b in self.branches.list():
+            if b.status in ("open", "in_review", "approved"):
+                suffix = f" · {b.status.replace('_', ' ')}" if b.status != "open" else ""
+                opts.append({"value": b.branch_id, "label": f"{b.name} ({b.changes}){suffix}"})
         return opts
 
     def work_package_options(self) -> list[dict[str, str]]:
@@ -91,6 +122,20 @@ class AppContext:
             {"value": w.element_id, "label": f"{w.name} [{w.element_id}]"}
             for w in self.target.work_packages()
         ]
+
+    # -------------------------------------------------------------- role
+    def role(self) -> str:
+        return current_role()
+
+    def can(self, action: str) -> bool:
+        return allowed(action)
+
+    def role_label(self) -> str:
+        return LABELS.get(current_role(), current_role())
+
+    def debug_personas(self) -> bool:
+        """Whether the header offers the persona switcher: mock authentication only, never on the platform."""
+        return self.settings.auth != "databricks"
 
     def base_url(self) -> str:
         """The URL the app is reached at, for links inside exported files; empty when unknown."""
@@ -104,6 +149,7 @@ class AppContext:
         return ""
 
     def current_user(self) -> User:
+        """Who is asking: on the platform the forwarded identity and groups; locally the debug persona."""
         if self.settings.auth == "databricks":
             try:
                 from flask import has_request_context, request
@@ -114,13 +160,31 @@ class AppContext:
                         or request.headers.get("X-Forwarded-Preferred-Username")
                         or ""
                     )
+                    groups = [
+                        g.strip()
+                        for g in request.headers.get("X-Forwarded-Groups", "").split(",")
+                        if g.strip()
+                    ]
                     if email:
-                        return User(username=email, display_name=email.split("@")[0])
+                        role = role_from_groups(groups, parse_role_groups(self.settings.role_groups))
+                        return User(
+                            username=email, display_name=email.split("@")[0], groups=groups, role=role
+                        )
             except Exception:  # noqa: BLE001
                 pass
-        return User(
-            username="architect@example.edu", display_name="Information Architect", groups=["ea-architects"]
-        )
+            return User(username="anonymous", display_name="Anonymous", role="reader")
+        return persona_user(self.persona())
+
+    def persona(self) -> str:
+        """The debug persona kept in the session; Admin by default."""
+        try:
+            from flask import has_request_context, session
+
+            if has_request_context():
+                return session.get("persona") or "admin"
+        except Exception:  # noqa: BLE001
+            pass
+        return "admin"
 
     @property
     def actor(self) -> str:

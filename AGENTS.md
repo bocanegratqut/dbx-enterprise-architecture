@@ -73,6 +73,12 @@ until the PoC has users and runs on Databricks. The enterprise content it holds
   live in `models.py` and are not extended per pack. The Propose module
   (`agent/proposal.py`) writes only to a branch and only what the architect
   ticked.
+- **Roles.** The role is a context variable too (`services/roles.py`), set per
+  request from the identity headers (or the debug persona under mock
+  authentication) and from `--as` on the command line. `allowed()` is the only
+  place that knows what a role may do; every writing path calls `require()`
+  and the pages hide what the role may not use. A branch in review is frozen.
+  Never add a write path without its `require()`.
 - `tests/` — pytest on an in-memory DuckDB. `scripts/` — the two archreator
   validators, run before every push.
 
@@ -83,7 +89,7 @@ make install     # uv sync (runtime and dev dependencies)
 make seed        # create data/ea.duckdb, load the higher-education pack and the sample model
 make run         # http://localhost:8050 (Dash debug server, no reloader)
 make check       # ruff + pytest + the two validators — must be green before pushing
-uv run ea --help # the CLI: init, import, validate, find, get, neighbours, trace, impact, view, target, sql, summary, branch …; --branch on any command
+uv run ea --help # the CLI: init, import, validate, find, get, set, neighbours, trace, impact, view, target, health, sql, summary, branch …, reviewers …; --branch and --as on any command
 ```
 
 The DuckDB file is single-writer: stop the app before running the CLI on the

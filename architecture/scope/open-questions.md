@@ -22,6 +22,7 @@ response.
 | - | -------- | ---------------------- | ----------------- | --------- |
 | 13 | Who may merge a branch into `main`? | Every user in the PoC (roles documented, not enforced); the merger's name and the time are recorded; a second-person approval comes with enforced roles at plateau `PLAT4` | Yes / No | Initiative 4 |
 | 14 | Which sources must Propose accept first? | Pasted text, Markdown, plain-text and CSV uploads, and links fetched over HTTP; PDF, Word and wiki connectors later | Yes / No, or the list | Initiative 5 |
+| 15 | Which workspace groups map onto which role? | `EA_ROLE_GROUPS` names a group per role (`admin=…;architect=…;reviewer=…`); users in none are readers; reviewer assignments per type name users or groups | The group names, and who reviews which types | Initiative 7 |
 
 ## Resolved
 

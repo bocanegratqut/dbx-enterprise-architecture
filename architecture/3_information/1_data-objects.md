@@ -4,8 +4,77 @@ _[← Information layer](./README.md) · [EA home](../README.md)_
 
 **Status: `◐` draft catalogue** — written from the code as it runs today
 (`src/ea/models.py`, `src/ea/backend/sql.py`, `src/ea/views/`) and from the owner's
-decisions of 2026-09-05, including initiative 2. Validated at the **Understanding** gate with the information
-architect.
+decisions of 2026-09-05 and 2026-09-06 (initiatives 1 to 7). Validated at the
+**Understanding** gate with the information architect.
+
+## The metamodel objects
+
+```mermaid
+flowchart LR
+  pack[("▤ «Artifact» Metamodel pack [ART2]")]:::technology
+  et["▤ «Data Object» Element type [DOBJ1.1]"]:::application
+  rt["▤ «Data Object» Relationship type [DOBJ1.2]"]:::application
+  at["▤ «Data Object» Attribute definition [DOBJ1.3]"]:::application
+  dom["▤ «Data Object» Domain [DOBJ1.4]"]:::application
+  nota["▤ «Data Object» Notation [DOBJ1.5]"]:::application
+  pack -->|loaded into| et
+  pack -->|loaded into| rt
+  at -->|declared on| et
+  et -->|grouped by| dom
+  nota -->|drawn with| et
+  nota -->|defaults from| dom
+  rt -->|between| et
+
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
+```
+
+## The graph and its branches
+
+```mermaid
+flowchart LR
+  el["▤ «Data Object» Element [DOBJ2.1]"]:::application
+  rel["▤ «Data Object» Relationship [DOBJ2.2]"]:::application
+  ln["▤ «Data Object» Element link [DOBJ2.3]"]:::application
+  view["▤ «Data Object» Architecture view [DOBJ2.4]"]:::application
+  br["▤ «Data Object» Branch [DOBJ2.5]"]:::application
+  cs["▤ «Data Object» Change set [DOBJ2.6]"]:::application
+  rev["▤ «Data Object» Review [DOBJ2.7]"]:::application
+  et["▤ «Data Object» Element type [DOBJ1.1]"]:::application
+  rel -->|connects| el
+  ln -->|attached to| el
+  el -->|typed by| et
+  view -->|selects| el
+  br -->|overlays| el
+  br -->|overlays| rel
+  cs -->|derived from| br
+  rev -->|decides| br
+
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+```
+
+## Exchange, audit and intake
+
+```mermaid
+flowchart LR
+  csv["▤ «Data Object» CSV exchange files [DOBJ3.1]"]:::application
+  map["▤ «Data Object» Column mapping [DOBJ3.2]"]:::application
+  rep["▤ «Data Object» Import report [DOBJ3.3]"]:::application
+  log["▤ «Data Object» Change log [DOBJ3.4]"]:::application
+  ans["▤ «Data Object» Answer document [DOBJ3.5]"]:::application
+  prop["▤ «Data Object» Proposal [DOBJ3.6]"]:::application
+  el["▤ «Data Object» Element [DOBJ2.1]"]:::application
+  br["▤ «Data Object» Branch [DOBJ2.5]"]:::application
+  view["▤ «Data Object» Architecture view [DOBJ2.4]"]:::application
+  map -->|normalises| csv
+  csv -->|imported as| el
+  csv -->|reported in| rep
+  log -->|records changes of| el
+  ans -->|embeds| view
+  prop -->|written to| br
+
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+```
 
 ## Domains
 
@@ -29,6 +98,7 @@ architect.
 | `DOBJ2.3` | **Element link** — a URL with a label attached to an element (the current tool's "Links" column, documents, catalogues) | `Link` in `src/ea/models.py` | table `element_link` | internal |
 | `DOBJ2.5` | **Branch** — a named line of work started from `main`: description, work package, status (open, merged, abandoned), who and when; its changes live in overlay tables that mirror the main ones with the branch, the base version and the operation on every row | `Branch` in `src/ea/models.py`; `BranchService` in `src/ea/services/branches.py`; the current branch in `src/ea/backend/branching.py` | tables `branch`, `branch_element`, `branch_relationship`, `branch_link` (decision 0006) | internal |
 | `DOBJ2.6` | **Change set** — a branch's difference against `main` today: rows added, changed and deleted, each with the main row before and the branch row after, and a conflict flag where `main` moved since the base version | `ChangeSet`, `ChangeItem` and `MergeResult` in `src/ea/models.py`; `diff_branch()` and `merge_branch()` in the store | not persisted; computed on demand, the merge recorded in the change log with the branch as origin | as the content it shows |
+| `DOBJ2.7` | **Review** — a reviewer's decision on a branch: approve or send back, for which element types, with a comment, who and when; a branch is approved when every type its change set touches has an approval from one of that type's reviewers | `Review` in `src/ea/models.py`; `ReviewService` in `src/ea/services/reviews.py` | table `branch_review`; the reviewer assignments in `reviewer_assignment` | internal |
 | `DOBJ2.4` | **Architecture view** — a subgraph selected from the model: a focus, the elements, the relationships among them, a title; produced by a query or an agent answer and rendered to Mermaid or draw.io; the reader may arrange its shapes in the browser, an arrangement that is never stored but that the draw.io export honours | `View` in `src/ea/views/model.py`; renderers `src/ea/views/mermaid.py`, `src/ea/views/drawio.py` | not persisted; rendered on demand | as the content it shows |
 | `DOBJ3.1` | **CSV exchange files** — `elements.csv`, `relationships.csv`, `links.csv` in the contract documented in `connectors/README.md`; one directory per export | `src/ea/importer/csv_import.py` | not persisted; read once per import | as the content they carry |
 | `DOBJ3.2` | **Column mapping** — renames export columns and type names onto the contract and the pack (`connectors/tool-export/mapping.yaml` for the current tool's export) | `Mapping` in `src/ea/importer/mapping.py` | YAML file under `connectors/` | internal |
@@ -82,3 +152,5 @@ the app; the whole institutional graph fits in memory (assessment `ASM6`).
 | `DOBJ2.5` | ▤ «Data Object» Branch | `DOBJ2.2` | ▤ «Data Object» Relationship | overlays | |
 | `DOBJ2.6` | ▤ «Data Object» Change set | `DOBJ2.5` | ▤ «Data Object» Branch | derived from | the merge log the Branches page shows |
 | `DOBJ3.6` | ▤ «Data Object» Proposal | `DOBJ2.5` | ▤ «Data Object» Branch | written to | the reviewed rows become the branch's rows; the proposal record stays with the branch |
+| `DOBJ2.7` | ▤ «Data Object» Review | `DOBJ2.5` | ▤ «Data Object» Branch | decides | approve or send back; a branch merges only when approved, unless an admin merges |
+| `DOBJ2.7` | ▤ «Data Object» Review | `DOBJ1.1` | ▤ «Data Object» Element type | scoped by | the reviewers assigned to the type |

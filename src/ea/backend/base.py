@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from ea.models import Branch, ChangeSet, Element, Link, MergeResult, Pack, Proposal, Relationship
+from ea.models import Branch, ChangeSet, Element, Link, MergeResult, Pack, Proposal, Relationship, Review
 
 
 class DatabaseBackend(ABC):
@@ -50,7 +50,13 @@ class DatabaseBackend(ABC):
     ) -> list[Element]: ...
 
     @abstractmethod
-    def count_elements(self, type_id: str | None = None, text: str | None = None) -> int: ...
+    def count_elements(
+        self, type_id: str | None = None, text: str | None = None, status: str | None = None
+    ) -> int: ...
+
+    @abstractmethod
+    def linked_element_ids(self) -> list[str]:
+        """Ids of the elements that carry at least one link."""
 
     @abstractmethod
     def count_by_type(self) -> dict[str, int]: ...
@@ -142,6 +148,22 @@ class DatabaseBackend(ABC):
 
     @abstractmethod
     def abandon_branch(self, branch_id: str, actor: str) -> Branch: ...
+
+    @abstractmethod
+    def set_branch_status(self, branch_id: str, status: str, actor: str) -> Branch: ...
+
+    # -------------------------------------------------------------- reviews
+    @abstractmethod
+    def add_review(self, review: Review) -> Review: ...
+
+    @abstractmethod
+    def list_reviews(self, branch_id: str) -> list[Review]: ...
+
+    @abstractmethod
+    def list_reviewer_assignments(self) -> dict[str, list[str]]: ...
+
+    @abstractmethod
+    def set_reviewer_assignment(self, type_id: str, reviewers: list[str], actor: str) -> None: ...
 
     # ------------------------------------------------------------ proposals
     # What an architect handed in and where it went (initiative 5).

@@ -48,6 +48,12 @@ flowchart TB
   imp --> reg
   svc --> store
   imp --> store
+  health["«Application Component» Health and search services [ACMP11]"]:::application
+  roles["«Application Component» Roles and review [ACMP12]"]:::application
+  ui --> health
+  ui --> roles
+  health --> svc
+  roles --> svc
   store -->|realized by| duck
   store -.->|realized by, pending| dbx
 

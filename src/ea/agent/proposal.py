@@ -24,6 +24,7 @@ from ea.config import Settings
 from ea.metamodel.registry import Registry
 from ea.models import CURRENT_STATES, TARGET_STATES, Element, Proposal, ValidationError
 from ea.services import BranchService, RepositoryService, TargetStateService
+from ea.services.roles import require
 
 MAX_LINK_BYTES = 400_000
 MIN_DESCRIPTION_CHARS = 20
@@ -538,6 +539,7 @@ class ProposalService:
     # ---------------------------------------------------------------- apply
     def apply(self, result: ProposalResult, branch_id: str, actor: str) -> dict[str, Any]:
         """Write the ticked rows to the branch and keep the proposal with it. Pushback stops it."""
+        require("propose", what="apply a proposal")
         result = self.resolve(result)
         if result.pushback:
             raise ValidationError([_issue(p) for p in result.pushback])

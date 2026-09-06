@@ -10,16 +10,20 @@ import uuid
 from typing import Any
 
 from ea.backend.base import DatabaseBackend
+from ea.backend.branching import MAIN, current_branch
 from ea.metamodel.registry import Registry
 from ea.models import (
     CURRENT_STATES,
     TARGET_STATES,
+    ConflictError,
     Element,
+    Forbidden,
     Link,
     NotFoundError,
     Relationship,
     ValidationError,
 )
+from ea.services.roles import require
 
 STATE_FIELDS = ("current_state", "target_state", "target_work_package", "target_note")
 
@@ -141,6 +145,19 @@ class RepositoryService:
         return self.backend.history(entity_id, limit)
 
     # ------------------------------------------------------------ writes
+    def check_write(self, action: str = "edit_content") -> None:
+        """The role may write here, and the branch is not frozen by a review."""
+        branch = current_branch()
+        if branch == MAIN:
+            require("edit_main", what="change main directly; work on a branch")
+            return
+        require(action)
+        b = self.backend.get_branch(branch)
+        if b is not None and b.status in ("in_review", "approved"):
+            raise Forbidden(
+                f"branch {branch} is {b.status.replace('_', ' ')}: frozen until the review is decided"
+            )
+
     def mint_id(self, type_id: str) -> str:
         t = self.registry.get_type(type_id)
         prefix = t.prefix if t and t.prefix else type_id.upper()[:6]
@@ -164,6 +181,7 @@ class RepositoryService:
         target_work_package: str = "",
         target_note: str = "",
     ) -> Element:
+        self.check_write()
         t = self.registry.resolve_type(type_id)
         if t is None:
             raise ValidationError(self.registry.validate_element(type_id, attrs))
@@ -196,6 +214,7 @@ class RepositoryService:
         return e
 
     def update_element(self, element_id: str, actor: str, expected_version: int, **fields: Any) -> Element:
+        self.check_write()
         e = self.element(element_id)
         if "type_id" in fields and fields["type_id"]:
             t = self.registry.resolve_type(fields["type_id"])
@@ -255,6 +274,40 @@ class RepositoryService:
             target_note=target_note,
         )
 
+    def bulk_update(
+        self,
+        element_ids: list[str],
+        actor: str,
+        fields: dict[str, Any] | None = None,
+        attribute: tuple[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """The same change on many elements, one audited update each; a refusal on one does not stop the rest.
+
+        `fields` may hold status, lifecycle_status, current_state, target_state, target_work_package,
+        target_note; `attribute` sets one attribute value. Empty values are not applied."""
+        self.check_write("bulk_edit")
+        fields = {k: v for k, v in (fields or {}).items() if v not in (None, "")}
+        allowed = {"status", "lifecycle_status", *STATE_FIELDS}
+        unknown = sorted(set(fields) - allowed)
+        if unknown:
+            raise ValidationError([_err("unknown_field", f"bulk edit cannot set {', '.join(unknown)}")])
+        updated, refused = [], []
+        for eid in dict.fromkeys(element_ids):
+            try:
+                e = self.element(eid)
+                kwargs: dict[str, Any] = dict(fields)
+                if attribute and attribute[0]:
+                    attrs = dict(e.attrs)
+                    attrs[attribute[0]] = attribute[1]
+                    kwargs["attrs"] = attrs
+                if not kwargs:
+                    continue
+                self.update_element(eid, actor, e.version, **kwargs)
+                updated.append(eid)
+            except (NotFoundError, ValidationError, ConflictError) as exc:
+                refused.append({"element_id": eid, "reason": str(exc)})
+        return {"updated": updated, "refused": refused}
+
     def retire_element(self, element_id: str, actor: str, expected_version: int) -> Element:
         return self.update_element(element_id, actor, expected_version, status="retired")
 
@@ -272,6 +325,7 @@ class RepositoryService:
         target_work_package: str = "",
         target_note: str = "",
     ) -> Relationship:
+        self.check_write()
         src, dst = self.element(src_id), self.element(dst_id)
         rt = self.registry.resolve_rel_type(rel_type, src.type_id, dst.type_id)
         if rt is None:
@@ -322,6 +376,7 @@ class RepositoryService:
         target_work_package: str | None = None,
         target_note: str | None = None,
     ) -> Relationship:
+        self.check_write()
         r = self.backend.get_relationship(relationship_id)
         if r is None:
             raise NotFoundError(relationship_id)
@@ -339,6 +394,7 @@ class RepositoryService:
         return self.backend.update_relationship(r, actor)
 
     def remove_relationship(self, relationship_id: str, actor: str) -> None:
+        self.check_write()
         self.backend.delete_relationship(relationship_id, actor)
 
 

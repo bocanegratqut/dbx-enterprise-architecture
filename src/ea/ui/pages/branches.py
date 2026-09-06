@@ -13,12 +13,18 @@ from dash import ctx as dash_ctx
 from flask import session
 
 from ea.backend.branching import MAIN, set_branch
-from ea.models import ChangeItem, ChangeSet, ConflictError, NotFoundError
+from ea.models import ChangeItem, ChangeSet, ConflictError, Forbidden, NotFoundError
 from ea.ui import ids, layout
 from ea.ui.components import alert, element_href, icon, page_title, simple_table
 from ea.ui.context import AppContext, get_context
 
-STATUS_COLOURS = {"open": "green", "merged": "indigo", "abandoned": "gray"}
+STATUS_COLOURS = {
+    "open": "green",
+    "in_review": "yellow",
+    "approved": "teal",
+    "merged": "indigo",
+    "abandoned": "gray",
+}
 CHANGE_COLOURS = {"added": "green", "changed": "orange", "deleted": "red"}
 
 GRID_COLUMNS = [
@@ -71,7 +77,7 @@ def _branch_table(ctx: AppContext, status: str | None, selected: str | None):
     rows = ctx.branches.list(status or None)
     if not rows:
         text = (
-            f"No {status} branches. Pick another status above."
+            f"No {status.replace('_', ' ')} branches. Pick another status above."
             if status and ctx.branches.list()
             else "No branches yet. Create one with the + button in the header."
         )
@@ -87,7 +93,12 @@ def _branch_table(ctx: AppContext, status: str | None, selected: str | None):
                     size="sm",
                     fw=700 if b.branch_id == selected else 500,
                 ),
-                dmc.Badge(b.status, color=STATUS_COLOURS.get(b.status, "gray"), size="xs", variant="light"),
+                dmc.Badge(
+                    b.status.replace("_", " "),
+                    color=STATUS_COLOURS.get(b.status, "gray"),
+                    size="xs",
+                    variant="light",
+                ),
                 b.changes,
                 dmc.Anchor(wp.name, href=element_href(wp.element_id), size="sm") if wp else "",
                 b.created_by,
@@ -122,6 +133,136 @@ def _fmt(v: Any) -> str:
     return str(v)
 
 
+def _may_abandon(ctx: AppContext, b) -> bool:
+    return ctx.can("abandon_branch") and (ctx.role() == "admin" or b.created_by == ctx.actor)
+
+
+def _review_panel(ctx: AppContext, b, has_rows: bool):
+    """Where the branch stands in its review, who must approve what, and the controls the role has."""
+    reqs = ctx.reviews.requirements(b.branch_id) if b.status not in ("merged", "abandoned") else []
+    reviews = ctx.reviews.reviews(b.branch_id)
+    me = ctx.current_user()
+    is_author = b.created_by == me.username
+    can_request = (
+        b.status == "open" and has_rows and ctx.can("request_review") and (is_author or ctx.role() == "admin")
+    )
+    can_review = b.status == "in_review" and ctx.can("review") and not is_author
+    my_types = [
+        r["type_id"]
+        for r in reqs
+        if not r["approved"]
+        and (ctx.role() == "admin" or ctx.reviews.covers(r["type_id"], me.username, me.groups))
+    ]
+    req_rows = [
+        [
+            dmc.Text(r["type"], size="sm", fw=500),
+            dmc.Text(", ".join(r["reviewers"]) if r["reviewers"] else "any reviewer", size="sm", c="dimmed"),
+            dmc.Badge("approved by " + ", ".join(r["approved_by"]), color="teal", variant="light", size="xs")
+            if r["approved"]
+            else dmc.Badge("pending", color="yellow", variant="light", size="xs"),
+        ]
+        for r in reqs
+    ]
+    history = [
+        dmc.Text(
+            f"{str(rv.decided_at)[:16]} · {rv.reviewer} {'approved' if rv.decision == 'approve' else 'sent back'}"
+            + (
+                f" ({', '.join(ctx.registry.types[t].name if t in ctx.registry.types else t for t in rv.type_ids)})"
+                if rv.decision == "approve"
+                else ""
+            )
+            + (f": {rv.comment}" if rv.comment else ""),
+            size="xs",
+            c="dimmed",
+        )
+        for rv in reviews
+    ]
+    if b.status == "open":
+        headline = "Not yet in review. " + (
+            "Request a review when the branch is complete: it freezes until the reviewers decide."
+            if has_rows
+            else "Nothing to review yet."
+        )
+    elif b.status == "in_review":
+        headline = "In review: frozen until every touched type is approved, or a reviewer sends it back."
+    elif b.status == "approved":
+        headline = "Approved by its reviewers: the author or an admin may merge it."
+    else:
+        headline = f"This branch is {b.status}."
+    controls = []
+    if can_request:
+        controls.append(
+            dmc.Button(
+                "Request review", id=ids.RV_REQUEST, leftSection=icon("tabler:checklist"), variant="light"
+            )
+        )
+    if can_review:
+        controls += [
+            dmc.MultiSelect(
+                id=ids.RV_TYPES,
+                data=[{"value": r["type_id"], "label": r["type"]} for r in reqs if not r["approved"]],
+                value=my_types,
+                placeholder="Types to approve",
+                w=320,
+                size="sm",
+            ),
+            dmc.TextInput(id=ids.RV_COMMENT, placeholder="Comment (required to send back)", w=320, size="sm"),
+            dmc.Button(
+                "Approve",
+                id=ids.RV_APPROVE,
+                color="teal",
+                leftSection=icon("tabler:checklist"),
+                disabled=not my_types,
+            ),
+            dmc.Button(
+                "Send back",
+                id=ids.RV_SEND_BACK,
+                color="orange",
+                variant="light",
+                leftSection=icon("tabler:refresh"),
+            ),
+        ]
+    elif b.status == "in_review" and is_author:
+        controls.append(dmc.Text("You wrote this branch; somebody else approves it.", size="xs", c="dimmed"))
+    # every control the callbacks expect must exist, hidden when the role has no use for it
+    hidden = html.Div(
+        [
+            html.Div(id=ids.RV_REQUEST) if not can_request else None,
+            html.Div(id=ids.RV_APPROVE) if not can_review else None,
+            html.Div(id=ids.RV_SEND_BACK) if not can_review else None,
+            dcc.Store(id=ids.RV_TYPES, data=[]) if not can_review else None,
+            dcc.Store(id=ids.RV_COMMENT, data="") if not can_review else None,
+        ],
+        hidden=True,
+    )
+    return dmc.Paper(
+        [
+            dmc.Group(
+                [
+                    dmc.Stack(
+                        [
+                            dmc.Text("Review", className="ea-section-title"),
+                            dmc.Text(headline, size="xs", c="dimmed"),
+                        ],
+                        gap=2,
+                    ),
+                    dmc.Group(controls, gap="xs", align="flex-end"),
+                ],
+                justify="space-between",
+                align="flex-start",
+            ),
+            simple_table(["type touched", "reviewers", "decision"], req_rows) if req_rows else None,
+            dmc.Stack(history, gap=2, mt="xs") if history else None,
+            html.Div(id=ids.RV_FEEDBACK, style={"marginTop": "0.4rem"}),
+            hidden,
+        ],
+        p="md",
+        withBorder=True,
+        className="ea-card",
+        mb="md",
+    )
+
+
 def _detail(ctx: AppContext, branch_id: str, message: Any = None):
     """The branch's head, counts and merge log; `message` is the outcome of the last merge or abandon."""
     try:
@@ -139,7 +280,11 @@ def _detail(ctx: AppContext, branch_id: str, message: Any = None):
                     dmc.Group(
                         [
                             dmc.Title(b.name, order=3),
-                            dmc.Badge(b.status, color=STATUS_COLOURS.get(b.status, "gray"), variant="light"),
+                            dmc.Badge(
+                                b.status.replace("_", " "),
+                                color=STATUS_COLOURS.get(b.status, "gray"),
+                                variant="light",
+                            ),
                             dmc.Code(b.branch_id),
                         ],
                         gap="sm",
@@ -173,7 +318,7 @@ def _detail(ctx: AppContext, branch_id: str, message: Any = None):
                         id=ids.BR_SWITCH,
                         variant="light",
                         leftSection=icon("tabler:git-branch"),
-                        disabled=ctx.branch() == branch_id or b.status != "open",
+                        disabled=ctx.branch() == branch_id or b.status in ("merged", "abandoned"),
                     ),
                     dmc.Button(
                         "Abandon",
@@ -181,7 +326,7 @@ def _detail(ctx: AppContext, branch_id: str, message: Any = None):
                         variant="subtle",
                         color="red",
                         leftSection=icon("tabler:trash"),
-                        disabled=b.status != "open",
+                        disabled=b.status in ("merged", "abandoned") or not _may_abandon(ctx, b),
                     ),
                 ],
                 gap="xs",
@@ -244,6 +389,7 @@ def _detail(ctx: AppContext, branch_id: str, message: Any = None):
                 value=it.key,
             )
         )
+    merge_ok, merge_why = ctx.reviews.can_merge(branch_id, ctx.actor)
     empty_note = (
         dmc.Text(
             "Nothing on this branch yet: edits, imports and applied proposals made on it will appear here."
@@ -278,6 +424,7 @@ def _detail(ctx: AppContext, branch_id: str, message: Any = None):
             dcc.Store(id=ids.BR_SELECTED, data=branch_id),
             head,
             count_badges,
+            html.Div(_review_panel(ctx, b, bool(rows)), id=ids.RV_PANEL),
             dmc.Paper(
                 [
                     dmc.Group(
@@ -295,11 +442,20 @@ def _detail(ctx: AppContext, branch_id: str, message: Any = None):
                                 ],
                                 gap=2,
                             ),
-                            dmc.Button(
-                                "Merge ticked rows to main",
-                                id=ids.BR_MERGE,
-                                leftSection=icon("tabler:git-merge"),
-                                disabled=b.status != "open" or not rows,
+                            dmc.Stack(
+                                [
+                                    dmc.Button(
+                                        "Merge ticked rows to main",
+                                        id=ids.BR_MERGE,
+                                        leftSection=icon("tabler:git-merge"),
+                                        disabled=not rows or not merge_ok,
+                                    ),
+                                    dmc.Text(merge_why, size="xs", c="dimmed", ta="right")
+                                    if merge_why
+                                    else None,
+                                ],
+                                gap=2,
+                                align="flex-end",
                             ),
                         ],
                         justify="space-between",
@@ -354,6 +510,7 @@ def render(ctx: AppContext, search: str | None = None) -> html.Div:
                     id=ids.BRANCH_NEW_OPEN + "-page",
                     leftSection=icon("tabler:plus"),
                     variant="light",
+                    disabled=not ctx.can("create_branch"),
                 ),
             ),
             dmc.Group(
@@ -362,6 +519,8 @@ def render(ctx: AppContext, search: str | None = None) -> html.Div:
                         id=ids.BR_STATUS,
                         data=[
                             {"value": "open", "label": "Open"},
+                            {"value": "in_review", "label": "In review"},
+                            {"value": "approved", "label": "Approved"},
                             {"value": "merged", "label": "Merged"},
                             {"value": "abandoned", "label": "Abandoned"},
                             {"value": "", "label": "All"},
@@ -369,7 +528,7 @@ def render(ctx: AppContext, search: str | None = None) -> html.Div:
                         value="open",
                         size="xs",
                     ),
-                    dmc.Text(f"You are on {ctx.branch()}.", size="sm", c="dimmed"),
+                    dmc.Text(f"You are on {ctx.branch()} as {ctx.role_label()}.", size="sm", c="dimmed"),
                 ],
                 gap="md",
                 mb="sm",
@@ -437,7 +596,7 @@ def register(app: dash.Dash) -> None:
         if trig == ids.BR_ABANDON and n_abandon:
             try:
                 ctx.branches.abandon(branch_id, ctx.actor)
-            except NotFoundError as exc:
+            except (NotFoundError, Forbidden) as exc:
                 return alert(str(exc), "red"), no_update, no_update, no_update, no_update
             ctx.graph.invalidate()
             switched = _leave_if_current(ctx, branch_id)
@@ -474,7 +633,7 @@ def register(app: dash.Dash) -> None:
         }
         try:
             res = ctx.branches.merge(branch_id, ctx.actor, include, resolutions)
-        except (ConflictError, NotFoundError) as exc:
+        except (ConflictError, NotFoundError, Forbidden) as exc:
             return alert(str(exc), "red"), no_update, no_update, no_update, no_update
         ctx.graph.invalidate()
         msg = f"Merged {len(res.applied)} row(s) to main"
@@ -492,6 +651,55 @@ def register(app: dash.Dash) -> None:
             _branch_table(ctx, status or None, branch_id),
             ctx.branch_options(),
             MAIN if switched else no_update,
+        )
+
+    @app.callback(
+        Output(ids.BR_DETAIL, "children", allow_duplicate=True),
+        Output(ids.BR_LIST, "children", allow_duplicate=True),
+        Output(ids.BRANCH_SELECT, "data", allow_duplicate=True),
+        Input(ids.RV_REQUEST, "n_clicks"),
+        Input(ids.RV_APPROVE, "n_clicks"),
+        Input(ids.RV_SEND_BACK, "n_clicks"),
+        State(ids.BR_SELECTED, "data"),
+        State(ids.RV_TYPES, "value"),
+        State(ids.RV_COMMENT, "value"),
+        State(ids.BR_STATUS, "value"),
+        prevent_initial_call=True,
+    )
+    def review(n_req, n_ok, n_back, branch_id, types, comment, status):
+        trig = dash_ctx.triggered_id
+        ctx = get_context()
+        me = ctx.current_user()
+        try:
+            if trig == ids.RV_REQUEST and n_req:
+                ctx.reviews.request(branch_id, me.username)
+                msg = alert("Review requested: the branch is frozen until its reviewers decide.", "green")
+            elif trig == ids.RV_APPROVE and n_ok:
+                out = ctx.reviews.approve(branch_id, me.username, types or None, comment or "", me.groups)
+                msg = alert(
+                    "Approved "
+                    + ", ".join(
+                        ctx.registry.types[t].name if t in ctx.registry.types else t
+                        for t in out["approved_types"]
+                    )
+                    + (
+                        "; the branch is approved."
+                        if out["complete"]
+                        else "; still pending: " + ", ".join(out["pending"]) + "."
+                    ),
+                    "green",
+                )
+            elif trig == ids.RV_SEND_BACK and n_back:
+                ctx.reviews.send_back(branch_id, me.username, comment or "")
+                msg = alert("Sent back to the author; the branch is open again.", "orange")
+            else:
+                return no_update, no_update, no_update
+        except (ConflictError, NotFoundError, Forbidden) as exc:
+            msg = alert(str(exc), "red")
+        return (
+            _detail(ctx, branch_id, msg),
+            _branch_table(ctx, status or None, branch_id),
+            ctx.branch_options(),
         )
 
     @app.callback(

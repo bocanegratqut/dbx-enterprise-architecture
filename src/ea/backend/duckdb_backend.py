@@ -18,6 +18,7 @@ from ea.backend.branching import MAIN, current_branch, validate_branch_id
 from ea.backend.sql import DDL, ELEMENT_COLUMNS, MIGRATIONS, RELATIONSHIP_COLUMNS, TRACE_IN_SQL, TRACE_OUT_SQL
 from ea.metamodel.loader import pack_from_dict
 from ea.models import (
+    OPEN_STATUSES,
     Branch,
     ChangeItem,
     ChangeSet,
@@ -29,6 +30,7 @@ from ea.models import (
     Pack,
     Proposal,
     Relationship,
+    Review,
 )
 
 _READ_ONLY_RE = re.compile(r"^\s*(select|with)\b", re.IGNORECASE)
@@ -481,10 +483,12 @@ class DuckDBBackend(DatabaseBackend):
         self, text: str | None, type_id: str | list[str] | None, status: str | None
     ) -> tuple[str, list[Any]]:
         clauses, params = [], []
-        if text:
-            like = f"%{text}%"
-            clauses.append("(name ILIKE ? OR key ILIKE ? OR element_id ILIKE ? OR description_md ILIKE ?)")
-            params += [like, like, like, like]
+        for word in (text or "").split():  # every word must match somewhere
+            like = f"%{word}%"
+            clauses.append(
+                "(name ILIKE ? OR key ILIKE ? OR element_id ILIKE ? OR description_md ILIKE ? OR attrs ILIKE ?)"
+            )
+            params += [like] * 5
         if type_id:
             ids = [type_id] if isinstance(type_id, str) else list(type_id)
             clauses.append(f"type_id IN ({', '.join('?' for _ in ids)})")
@@ -504,9 +508,23 @@ class DuckDBBackend(DatabaseBackend):
         )
         return [self._row_to_element(r) for r in rows]
 
-    def count_elements(self, type_id=None, text=None) -> int:
-        where, params = self._where(text, type_id, None)
+    def count_elements(self, type_id=None, text=None, status=None) -> int:
+        where, params = self._where(text, type_id, status)
         return int(self._fetch_all(f"SELECT COUNT(*) FROM {self._el()} AS el{where}", params)[0][0])
+
+    def linked_element_ids(self) -> list[str]:
+        """Ids of the elements that carry at least one link, on the current branch."""
+        branch = current_branch()
+        if branch == MAIN:
+            rows = self._fetch_all("SELECT DISTINCT element_id FROM element_link")
+        else:
+            rows = self._fetch_all(
+                "SELECT DISTINCT element_id FROM element_link WHERE element_id NOT IN "
+                "(SELECT element_id FROM branch_element WHERE branch_id = ?) "
+                "UNION SELECT DISTINCT element_id FROM branch_link WHERE branch_id = ?",
+                [branch, branch],
+            )
+        return [r[0] for r in rows]
 
     def count_by_type(self) -> dict[str, int]:
         return {
@@ -1281,7 +1299,7 @@ class DuckDBBackend(DatabaseBackend):
         dropped rows leave the branch; the branch closes when nothing remains.
         """
         change_set = self.diff_branch(branch_id)
-        if change_set.branch.status != "open":
+        if change_set.branch.status not in OPEN_STATUSES:
             raise ConflictError(f"branch {branch_id} is {change_set.branch.status}")
         resolutions = resolutions or {}
         result = MergeResult(branch_id=branch_id)
@@ -1433,6 +1451,85 @@ class DuckDBBackend(DatabaseBackend):
             self._close_branch(branch_id, "abandoned", actor)
             self._log("branch", branch_id, "abandon", actor, None, None, None, MAIN)
         return self.get_branch(branch_id)  # type: ignore[return-value]
+
+    def set_branch_status(self, branch_id: str, status: str, actor: str) -> Branch:
+        if self.get_branch(branch_id) is None:
+            raise NotFoundError(branch_id)
+        with self._lock:
+            if status in ("merged", "abandoned"):
+                self._close_branch(branch_id, status, actor)
+            else:
+                self._execute(
+                    "UPDATE branch SET status = ?, closed_by = NULL, closed_at = NULL WHERE branch_id = ?",
+                    [status, branch_id],
+                )
+            self._log("branch", branch_id, f"status:{status}", actor, None, {"status": status}, None, MAIN)
+        return self.get_branch(branch_id)  # type: ignore[return-value]
+
+    # ------------------------------------------------------------- reviews
+    def add_review(self, review: Review) -> Review:
+        review.review_id = review.review_id or new_id("rev")
+        review.decided_at = review.decided_at or _now()
+        with self._lock:
+            self._execute(
+                "INSERT INTO branch_review VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    review.review_id,
+                    review.branch_id,
+                    review.reviewer,
+                    review.decision,
+                    json.dumps(review.type_ids),
+                    review.comment or None,
+                    review.decided_at,
+                ],
+            )
+            self._log(
+                "branch",
+                review.branch_id,
+                f"review:{review.decision}",
+                review.reviewer,
+                None,
+                {"types": review.type_ids, "comment": review.comment},
+                None,
+                MAIN,
+            )
+        return review
+
+    def list_reviews(self, branch_id: str) -> list[Review]:
+        rows = self._fetch_all(
+            "SELECT review_id, branch_id, reviewer, decision, type_ids, comment, decided_at FROM branch_review "
+            "WHERE branch_id = ? ORDER BY decided_at",
+            [branch_id],
+        )
+        return [
+            Review(
+                review_id=r[0],
+                branch_id=r[1],
+                reviewer=r[2],
+                decision=r[3],
+                type_ids=json.loads(r[4] or "[]"),
+                comment=r[5] or "",
+                decided_at=r[6],
+            )
+            for r in rows
+        ]
+
+    def list_reviewer_assignments(self) -> dict[str, list[str]]:
+        out: dict[str, list[str]] = {}
+        for type_id, reviewer in self._fetch_all(
+            "SELECT type_id, reviewer FROM reviewer_assignment ORDER BY type_id, reviewer"
+        ):
+            out.setdefault(type_id, []).append(reviewer)
+        return out
+
+    def set_reviewer_assignment(self, type_id: str, reviewers: list[str], actor: str) -> None:
+        with self._lock:
+            self._execute("DELETE FROM reviewer_assignment WHERE type_id = ?", [type_id])
+            for r in dict.fromkeys(x.strip() for x in reviewers if x and x.strip()):
+                self._execute(
+                    "INSERT INTO reviewer_assignment VALUES (?, ?, ?, ?)", [type_id, r, actor, _now()]
+                )
+            self._log("reviewers", type_id, "assign", actor, None, {"reviewers": reviewers}, None, MAIN)
 
     # ----------------------------------------------------------- proposals
     def save_proposal(self, p: Proposal) -> Proposal:

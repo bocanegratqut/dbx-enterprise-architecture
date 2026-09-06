@@ -6,8 +6,11 @@ import dash_mantine_components as dmc
 from dash import dcc, html
 
 from ea.backend.branching import MAIN
+from ea.services.roles import DESCRIPTIONS, LABELS
 from ea.ui import ids
 from ea.ui.components import icon
+
+ROLE_COLOURS = {"admin": "red", "architect": "indigo", "reviewer": "teal", "reader": "gray", "agent": "cyan"}
 
 THEME = {
     "primaryColor": "indigo",
@@ -23,6 +26,7 @@ NAV = [
     ("Impact", "/impact", "tabler:radar"),
     ("Target state", "/target", "tabler:target-arrow"),
     ("Branches", "/branches", "tabler:git-branch"),
+    ("Health", "/health", "tabler:heart-rate-monitor"),
     ("Import", "/import", "tabler:file-import"),
     ("Ask", "/ask", "tabler:message-chatbot"),
     ("Propose", "/propose", "tabler:file-plus"),
@@ -38,6 +42,31 @@ def branch_badge(branch_id: str, changes: int | None = None) -> dmc.Badge:
     label = f"branch · {changes} change{'s' if changes != 1 else ''}" if changes is not None else "branch"
     return dmc.Badge(
         label, variant="filled", color="orange", size="lg", leftSection=icon("tabler:git-branch", 12)
+    )
+
+
+def role_badge(role: str, display_name: str = "") -> dmc.Badge:
+    """Who the reader is and in which role."""
+    return dmc.Badge(
+        f"{display_name or LABELS.get(role, role)}",
+        variant="light",
+        color=ROLE_COLOURS.get(role, "gray"),
+        size="lg",
+        leftSection=icon("tabler:user", 12),
+    )
+
+
+def persona_switcher(persona: str) -> dmc.Select:
+    """The debug switcher of mock authentication: any of the five roles a click away, Admin by default."""
+    return dmc.Select(
+        id=ids.PERSONA_SELECT,
+        data=[{"value": r, "label": f"{LABELS[r]} — {DESCRIPTIONS[r][:48]}…"} for r in LABELS],
+        value=persona,
+        w=200,
+        size="sm",
+        allowDeselect=False,
+        leftSection=icon("tabler:user", 14),
+        comboboxProps={"withinPortal": True, "width": 420, "position": "bottom-end"},
     )
 
 
@@ -86,7 +115,12 @@ def shell(
     current: str = MAIN,
     changes: int | None = None,
     work_packages: list[dict[str, str]] | None = None,
+    role: str = "admin",
+    display_name: str = "",
+    persona: str | None = None,
+    can_create_branch: bool = True,
 ) -> dmc.MantineProvider:
+    """`persona` is the debug persona to show in the switcher, or None on the platform (no switcher)."""
     return dmc.MantineProvider(
         theme=THEME,
         defaultColorScheme="light",
@@ -139,11 +173,15 @@ def shell(
                                                 id=ids.BRANCH_NEW_OPEN,
                                                 variant="light",
                                                 size="lg",
+                                                disabled=not can_create_branch,
                                             ),
-                                            label="New branch from main",
+                                            label="New branch from main"
+                                            if can_create_branch
+                                            else "Your role may not create branches",
                                         ),
+                                        html.Div(role_badge(role, display_name), id=ids.ROLE_BADGE),
+                                        persona_switcher(persona) if persona else None,
                                         dmc.Badge(pack_name, variant="light", color="indigo", size="lg"),
-                                        dmc.Badge("PoC", variant="outline", color="gray", size="lg"),
                                     ],
                                     gap="xs",
                                 ),

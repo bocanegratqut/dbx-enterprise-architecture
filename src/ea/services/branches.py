@@ -11,7 +11,8 @@ from typing import Any
 from ea.backend.base import DatabaseBackend
 from ea.backend.branching import MAIN, branch_id_from_name, current_branch, use_branch
 from ea.metamodel.registry import Registry
-from ea.models import Branch, ChangeItem, ChangeSet, ConflictError, MergeResult, NotFoundError
+from ea.models import Branch, ChangeItem, ChangeSet, ConflictError, Forbidden, MergeResult, NotFoundError
+from ea.services.roles import current_role, require
 
 
 class BranchService:
@@ -47,6 +48,7 @@ class BranchService:
         work_package: str = "",
         branch_id: str | None = None,
     ) -> Branch:
+        require("create_branch", what="create a branch")
         bid = branch_id or branch_id_from_name(name)
         if bid == MAIN:
             raise ConflictError("'main' is the model itself, not a branch")
@@ -66,10 +68,25 @@ class BranchService:
         include: set[str] | None = None,
         resolutions: dict[str, str] | None = None,
     ) -> MergeResult:
-        """Merge the ticked items (all when `include` is None); conflicts need a resolution."""
+        """Merge the ticked items (all when `include` is None); conflicts need a resolution.
+
+        An architect merges an approved branch; an admin may merge any open branch, and the
+        change log then says the merge happened without a review (decision 0009)."""
+        require("merge", what="merge a branch")
+        b = self.get(branch_id)
+        if b.status != "approved":
+            require("merge_without_review", what="merge a branch that is not approved")
+            if b.status in ("open", "in_review"):
+                self.backend._log(
+                    "branch", branch_id, "merge_without_review", actor, None, {"status": b.status}, None, MAIN
+                )  # noqa: SLF001
         return self.backend.merge_branch(branch_id, actor, include, resolutions)
 
     def abandon(self, branch_id: str, actor: str) -> Branch:
+        require("abandon_branch", what="abandon a branch")
+        b = self.get(branch_id)
+        if current_role() != "admin" and b.created_by != actor:
+            raise Forbidden("an architect may abandon only their own branch")
         return self.backend.abandon_branch(branch_id, actor)
 
     # ------------------------------------------------------------ helpers

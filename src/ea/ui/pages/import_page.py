@@ -14,6 +14,7 @@ from dash import Input, Output, State, dcc, html, no_update
 
 from ea.config import ROOT
 from ea.importer import Mapping, import_frames, load_mapping
+from ea.models import Forbidden
 from ea.ui import ids
 from ea.ui.components import alert, icon, issues_table, page_title
 from ea.ui.context import AppContext, get_context
@@ -91,7 +92,13 @@ def render(ctx: AppContext) -> html.Div:
                                             leftSection=icon("tabler:checklist"),
                                         ),
                                         dmc.Button(
-                                            "Load", id=ids.IM_LOAD, leftSection=icon("tabler:database-import")
+                                            "Load",
+                                            id=ids.IM_LOAD,
+                                            leftSection=icon("tabler:database-import"),
+                                            disabled=not (
+                                                ctx.can("import")
+                                                and (ctx.on_branch() or ctx.can("edit_main"))
+                                            ),
                                         ),
                                     ]
                                 ),
@@ -149,15 +156,18 @@ def _run(store, source, mapping_key, dry_run: bool):
         return alert(
             "None of the files matched the element/relationship/link file patterns of the mapping.", "red"
         )
-    report = import_frames(
-        ctx.backend,
-        ctx.registry,
-        frames,
-        source or mapping.source_system or "import",
-        mapping,
-        ctx.actor,
-        dry_run,
-    )
+    try:
+        report = import_frames(
+            ctx.backend,
+            ctx.registry,
+            frames,
+            source or mapping.source_system or "import",
+            mapping,
+            ctx.actor,
+            dry_run,
+        )
+    except Forbidden as exc:
+        return alert(str(exc), "red")
     if not dry_run:
         ctx.graph.invalidate()
     color = "green" if report.ok else "red"

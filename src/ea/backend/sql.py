@@ -7,7 +7,15 @@ SQL client.
 
 META_TABLES = ["meta_pack", "meta_domain", "meta_element_type", "meta_attribute", "meta_relationship_type"]
 CONTENT_TABLES = ["element", "relationship", "element_link", "change_log"]
-BRANCH_TABLES = ["branch", "branch_element", "branch_relationship", "branch_link", "proposal"]
+BRANCH_TABLES = [
+    "branch",
+    "branch_element",
+    "branch_relationship",
+    "branch_link",
+    "proposal",
+    "branch_review",
+    "reviewer_assignment",
+]
 
 # Columns added after a table first shipped. A backend applies them to an existing
 # store on start-up (ADD COLUMN IF NOT EXISTS on DuckDB), so an older file keeps
@@ -232,6 +240,23 @@ DDL: dict[str, str] = {
             label VARCHAR,
             sort_order INTEGER,
             branch_id VARCHAR NOT NULL
+        )""",
+    "branch_review": """
+        CREATE TABLE IF NOT EXISTS branch_review (
+            review_id VARCHAR NOT NULL,
+            branch_id VARCHAR NOT NULL,
+            reviewer VARCHAR NOT NULL,
+            decision VARCHAR NOT NULL,
+            type_ids VARCHAR,
+            comment VARCHAR,
+            decided_at TIMESTAMP
+        )""",
+    "reviewer_assignment": """
+        CREATE TABLE IF NOT EXISTS reviewer_assignment (
+            type_id VARCHAR NOT NULL,
+            reviewer VARCHAR NOT NULL,
+            added_by VARCHAR,
+            added_at TIMESTAMP
         )""",
     "proposal": """
         CREATE TABLE IF NOT EXISTS proposal (

@@ -223,6 +223,28 @@ def check_project(project: Path, known: dict | None = None) -> tuple[list[str], 
         elif not status:  # pragma: no cover - unreachable while count == 1
             errors.append(f"{doc}: unrecognised status glyph")
 
+    # A layer document opens with its views. `architecture-document-style` puts one to
+    # three diagrams in the notation before the catalogue tables they are drawn from, so a
+    # reader sees the shape before the rows. Nothing enforced that until this check: a
+    # catalogue with no diagram, or one whose diagram trails the tables, passed silently.
+    for doc in sorted(defining):
+        try:
+            text = (REPO_ROOT / doc).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        fence = text.find("```mermaid")
+        first_table = next((m.start() for m in re.finditer(r"^\|", text, re.M)), -1)
+        if fence < 0:
+            errors.append(
+                f"{doc}: defines elements and carries no view. Open the document with at "
+                f"least one ```mermaid diagram in the notation before its catalogue tables"
+            )
+        elif first_table >= 0 and fence > first_table:
+            errors.append(
+                f"{doc}: its first view comes after its first table. A layer document opens "
+                f"with its views; the tables that define the elements follow"
+            )
+
     for said, md_file in parsed.restatements:
         canonical = parsed.names.get(said.element)
         if not canonical or not said.written:

@@ -28,6 +28,8 @@ element identifiers it came from.
 | **Branches** — several architects draft on their own branch of the model (an overlay on `main`, on the same DuckDB file), edit, import and ask on it as if it were the model, then merge item by item from a merge log: every element and relationship ticked to go to `main` or left on the branch, every conflict (a row `main` changed meanwhile) resolved for the branch or for `main`; abandon discards | Header branch selector, Branches page, `ea branch …`, `--branch` on every command |
 | **Target state** — every element and relationship carries what is true today (`proposed`, `planned`, `in_implementation`, `live`, `retired`, `non_existent`) and what is intended (`undecided`, `keep`, `new`, `change`, `decommission`, `merge`) under a work package; derived from the source's lifecycle text on import; analysed per work package with a current-by-target matrix and a generated view whose shapes carry the markers, in Mermaid and draw.io | Target state page, Element page (State card, Edit tab), `ea target` |
 | **Propose** — hand in a design page (pasted text, Markdown, text or CSV files, links); a reader identifies the elements it names, links the ones that exist, adopts the new ones as proposed, and pushes back with the minimum to add when the sources are insufficient; the result is an editable merge log (include ticks, cells editable, rows added by hand, usable without any model) applied to a branch and kept with it; a downloadable Proposal Template | Propose page, `templates/proposal-template.md` |
+| **Search, bulk edit, health** — search word by word across names, identifiers, descriptions and attributes, ranked, with the matching passage shown; tick many rows and set their status, states, work package, lifecycle or an attribute in one audited pass; a Health page with freshness per source system (last load, rows stale for 30, 90 and 180 days, never-updated rows, weekly change activity) and completeness per type (descriptions, links, relationships, required attributes, decided targets), every figure a link to the rows behind it | Browse and Health pages, `ea find`, `ea set`, `ea health` |
+| **Roles and review before merge** — five roles enforced (Reader, Reviewer, Architect, Admin, Agent), derived from workspace groups on the platform and picked from a debug persona switcher locally (Admin by default); an architect requests a review, the reviewers assigned to each element type the branch touches approve or send it back, and only an approved branch merges (an admin may merge without a review, and the log says so) | Header persona switcher, Branches page (review panel), Metamodel page (Reviewers tab), `--as` and `ea branch review/approve/send-back`, `ea reviewers` |
 
 The first pack is an anonymised **higher-education** metamodel (59 element types, 27 active; 54
 relationship types with provenance, `ANY` targets and stewardship qualifiers).
@@ -64,7 +66,9 @@ uv run ea branch merge cms-upgrade-phase-2 -i element:PAC-CMS -r element:PAC-CMS
 ```
 
 Every command reads and writes `main` unless `--branch` (or `EA_BRANCH`) names
-a branch; in the app the header selector does the same for the session.
+a branch; in the app the header selector does the same for the session. Every
+command runs as Admin unless `--as` (or `EA_ROLE`) names a role; `ea --as
+architect import …` behaves exactly as an architect in the app would.
 
 Stop the app before running the CLI against the same DuckDB file (one writer
 per file), or set `EA_DB_PATH` to another file.
@@ -90,6 +94,28 @@ changed the same row since the branch took its copy. Tick what goes to `main`
 now, choose the branch's row or `main`'s for each conflict, merge; what is not
 ticked remains on the branch, which closes only when nothing remains. The same
 overlay is a `MERGE` on Delta, so nothing here is DuckDB-specific.
+
+## Roles, and who approves a merge
+
+Five roles, cumulative from Reader: **Reader** browses, asks and downloads;
+**Reviewer** approves or sends back branches for the element types assigned to
+them; **Architect** drafts on branches, imports, proposes, requests reviews and
+merges approved branches; **Admin** does everything, including the metamodel,
+`main` and merging without a review; **Agent** is what the assistant may do
+through its tools (read). On the platform the role comes from the forwarded
+identity and its workspace groups through `EA_ROLE_GROUPS`
+(`admin=ea-admins;architect=ea-architects;reviewer=ea-reviewers`); locally,
+with mock authentication, the header carries a **debug persona switcher** with
+Admin, Architect, Reviewer, Reader and Agent, so every path can be walked
+without a workspace.
+
+A branch goes `open → in review → approved → merged`. The author requests the
+review; the branch freezes; the Branches page names, per element type the
+change set touches, who must approve (the Reviewers tab of the Metamodel page
+assigns users or groups to types; a type with nobody assigned takes any
+reviewer); each reviewer approves their types or sends the branch back with a
+comment; the author merges once every type is approved. Every decision is a row
+in the store and an entry in the change log.
 
 ## Proposing a change from a document
 
@@ -140,7 +166,9 @@ Metamodel page and export it.
 | `EA_AGENT_MODEL` | (provider default) | Model identifier for the hosted provider |
 | `EA_MAX_ROWS` | `5000` | Row cap for Browse and read-only SQL |
 | `EA_BRANCH` | `main` | The branch the CLI works on (same as `--branch`) |
-| `EA_SECRET_KEY` | (random per start) | Signs the session cookie that remembers a reader's branch; set it so sessions survive a restart |
+| `EA_SECRET_KEY` | (random per start) | Signs the session cookie that remembers a reader's branch and debug persona; set it so sessions survive a restart |
+| `EA_ROLE` | `admin` | The role the CLI runs as (same as `--as`) |
+| `EA_ROLE_GROUPS` | (empty: everyone a reader) | On the platform, which workspace group grants which role: `admin=g1,g2;architect=g3;reviewer=g4` |
 
 ## Running on Databricks Apps
 

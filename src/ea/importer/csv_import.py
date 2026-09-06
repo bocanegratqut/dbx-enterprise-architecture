@@ -12,6 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 from ea.backend.base import DatabaseBackend
+from ea.backend.branching import MAIN, current_branch
 from ea.importer.mapping import (
     CORE_ELEMENT_COLUMNS,
     CORE_LINK_COLUMNS,
@@ -20,8 +21,19 @@ from ea.importer.mapping import (
     derive_current_state,
 )
 from ea.metamodel.registry import Registry
-from ea.models import CURRENT_STATES, TARGET_STATES, Element, ImportReport, Issue, Link, Relationship, slugify
+from ea.models import (
+    CURRENT_STATES,
+    TARGET_STATES,
+    Element,
+    Forbidden,
+    ImportReport,
+    Issue,
+    Link,
+    Relationship,
+    slugify,
+)
 from ea.services.repository import coerce_attrs, relationship_key
+from ea.services.roles import require
 
 _SPLIT_LINKS = re.compile(r"\s*[|;]\s*")
 
@@ -391,6 +403,14 @@ def import_frames(
             )
     if dry_run:
         return report
+    require("import", what="load content")
+    if current_branch() == MAIN:
+        require("edit_main", what="load onto main; load onto a branch")
+    b = backend.get_branch(current_branch()) if current_branch() != MAIN else None
+    if b is not None and b.status in ("in_review", "approved"):
+        raise Forbidden(
+            f"branch {b.branch_id} is {b.status.replace('_', ' ')}: frozen until the review is decided"
+        )
     ins, upd = backend.upsert_elements(elements, actor)
     report.elements_loaded = ins + upd
     ins, upd = backend.upsert_relationships(rels, actor)

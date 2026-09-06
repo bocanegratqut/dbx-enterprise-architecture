@@ -14,7 +14,7 @@ from dash import ctx as dash_ctx
 from ea.agent.proposal import ProposalResult, fetch_link, result_from_payload
 from ea.backend.branching import MAIN
 from ea.config import ROOT
-from ea.models import CURRENT_STATES, TARGET_STATES, ConflictError, NotFoundError, ValidationError
+from ea.models import CURRENT_STATES, TARGET_STATES, ConflictError, Forbidden, NotFoundError, ValidationError
 from ea.ui import ids
 from ea.ui.components import alert, icon, page_title
 from ea.ui.context import AppContext, get_context
@@ -316,7 +316,12 @@ def _preview(ctx: AppContext, r: ProposalResult):
                         variant="light",
                         leftSection=icon("tabler:checklist"),
                     ),
-                    dmc.Button("Apply to branch", id=ids.PR_APPLY, leftSection=icon("tabler:git-branch")),
+                    dmc.Button(
+                        "Apply to branch",
+                        id=ids.PR_APPLY,
+                        leftSection=icon("tabler:git-branch"),
+                        disabled=not ctx.can("propose"),
+                    ),
                 ],
                 gap="sm",
             ),
@@ -674,7 +679,7 @@ def register(app: dash.Dash) -> None:
                 title = result.title or f"proposal {len(ctx.branches.list()) + 1}"
                 b = ctx.branches.create(title, ctx.actor, f"Proposal: {title}", result.work_package_id or "")
             out = ctx.proposals.apply(result, b.branch_id, ctx.actor)
-        except (ValidationError, ConflictError, NotFoundError, ValueError) as exc:
+        except (ValidationError, ConflictError, NotFoundError, ValueError, Forbidden) as exc:
             msg = "; ".join(str(i) for i in exc.issues) if isinstance(exc, ValidationError) else str(exc)
             return no_update, alert(f"Not applied: {msg}", "red"), no_update
         ctx.graph.invalidate()

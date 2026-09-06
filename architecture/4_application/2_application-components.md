@@ -7,6 +7,81 @@ _[← Application layer](./README.md) · [EA home](../README.md)_
 Validated at the **Understanding** gate; the **Design** gate is offered but not
 required at Depth 1.
 
+## Dependencies between components
+
+```mermaid
+flowchart TB
+  ui["▭ «Application Component» Web application [ACMP6]"]:::application
+  cli["▭ «Application Component» Command line [ACMP7]"]:::application
+  agent["▭ «Application Component» Agent [ACMP5]"]:::application
+  prop["▭ «Application Component» Proposal agent [ACMP10]"]:::application
+  views["▭ «Application Component» View generator [ACMP8]"]:::application
+  svc["▭ «Application Component» Repository and graph services [ACMP3]"]:::application
+  health["▭ «Application Component» Health and search services [ACMP11]"]:::application
+  roles["▭ «Application Component» Roles and review [ACMP12]"]:::application
+  br["▭ «Application Component» Branch overlay and merge [ACMP9]"]:::application
+  imp["▭ «Application Component» Importer [ACMP4]"]:::application
+  reg["▭ «Application Component» Metamodel registry [ACMP1]"]:::application
+  store["▭ «Application Component» Graph store [ACMP2]"]:::application
+  ui --> svc
+  ui --> imp
+  ui --> agent
+  ui --> prop
+  ui --> views
+  ui --> br
+  ui --> health
+  ui --> roles
+  cli --> svc
+  cli --> imp
+  cli --> br
+  cli --> roles
+  agent --> svc
+  agent --> views
+  prop --> svc
+  prop --> br
+  views --> svc
+  views --> reg
+  health --> svc
+  roles --> br
+  svc --> reg
+  imp --> reg
+  svc --> store
+  imp --> store
+  br --> store
+
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+```
+
+## The layering rule as a picture
+
+```mermaid
+flowchart LR
+  m["models"]:::layer --> mm["metamodel"]:::layer --> be["backend"]:::layer --> sv["services"]:::layer --> vw["views · importer · agent"]:::layer --> ui["ui"]:::layer
+  sql["SQL lives here only"]:::note -.-> be
+  packs["type and column names live in packs/ and connectors/ only"]:::note -.-> mm
+
+  classDef layer fill:#c2f0ff,stroke:#0288d1,color:#333
+  classDef note fill:#eeeeee,stroke:#888888,color:#333
+```
+
+## The store and its engines
+
+```mermaid
+flowchart LR
+  store["▭ «Application Component» Graph store [ACMP2]"]:::application
+  duck["▭ «Application Component» DuckDB backend [ACMP2.1]"]:::application
+  dbx["▭ «Application Component» Databricks backend [ACMP2.2]"]:::application
+  file[("▤ «Artifact» Repository file [ART1]")]:::technology
+  node["⬒ «Node» Databricks workspace [NODE2]"]:::technology
+  store -->|realized by| duck
+  store -.->|realized by, pending| dbx
+  duck -->|holds| file
+  dbx -.->|runs on, pending| node
+
+  classDef application fill:#c2f0ff,stroke:#0288d1,color:#333
+  classDef technology fill:#c9e7b7,stroke:#558b2f,color:#333
+```
+
 ## Layering rule
 
 `models → metamodel → backend → services → views / importer / agent → ui`. A module
@@ -25,11 +100,13 @@ imports only from layers to its left. SQL lives in `backend/` only
 | `ACMP3` | **Repository and graph services** — element and relationship operations with validation (states and work package included) and identifier minting; a cached in-process graph per branch for neighbours, traces, impact and completeness; Cytoscape-ready subgraphs; the target-state service (work packages from the pack's notation, counts, matrix, view scope) | `src/ea/services/repository.py`, `src/ea/services/graph.py`, `src/ea/services/target.py` | `ASVC2`, `ASVC4`, `ASVC8` | Running |
 | `ACMP4` | **Importer** — reads a directory of CSV files through a mapping, builds elements, relationships and links, validates against the registry, reports, loads idempotently into the current branch; derives the current state from the source's lifecycle text (mapping table, then keywords) | `src/ea/importer/csv_import.py`, `src/ea/importer/mapping.py`, `connectors/tool-export/mapping.yaml` | `ASVC3` | Running |
 | `ACMP5` | **Agent** — a tool-calling loop with a provider interface: a hosted-model provider when a key is present, a stub provider that runs the tools without a model otherwise; grounding check of every identifier in the answer | `src/ea/agent/agent.py`, `src/ea/agent/tools.py` | `ASVC5` | Running (stub locally; the hosted provider needs a key, see the scope document) |
-| `ACMP6` | **Web application** — Dash pages Home, Browse, Element, Metamodel, Impact, Target state, Branches, Import, Ask, Propose on a Mantine shell with the branch selector in the header (the branch lives in the session),  with AG Grid tables and Cytoscape graphs and Mermaid views rendered in the browser from a bundled library; mock persona locally, forwarded identity headers on Databricks Apps; one graph panel (`src/ea/ui/graph.py`) with grouping, compound-aware layouts and pack-driven colours; the Notation tab; the drag-and-arrange script for generated views (`assets/ea-views.js`) | `src/ea/ui/` (`app.py`, `layout.py`, `context.py`, `components.py`, `pages/`), `app.py`, `app.yaml`, `assets/` | `ASVC1`–`ASVC5` | Running |
-| `ACMP7` | **Command line** — `ea` with init, load-pack, export-pack, import, validate, stats, find, get, neighbours, trace, impact, view, target, sql, summary, and `branch list/create/diff/merge/abandon`; `--branch` (or `EA_BRANCH`) on every command | `src/ea/cli.py` | `ASVC1`–`ASVC4`, `ASVC7`, `ASVC8` | Running |
+| `ACMP6` | **Web application** — Dash pages Home, Browse, Element, Metamodel, Impact, Target state, Branches, Health, Import, Ask, Propose on a Mantine shell with the branch selector and, locally, the debug persona switcher in the header (both live in the session),  with AG Grid tables and Cytoscape graphs and Mermaid views rendered in the browser from a bundled library; mock persona locally, forwarded identity headers on Databricks Apps; one graph panel (`src/ea/ui/graph.py`) with grouping, compound-aware layouts and pack-driven colours; the Notation tab; the drag-and-arrange script for generated views (`assets/ea-views.js`) | `src/ea/ui/` (`app.py`, `layout.py`, `context.py`, `components.py`, `pages/`), `app.py`, `app.yaml`, `assets/` | `ASVC1`–`ASVC5` | Running |
+| `ACMP7` | **Command line** — `ea` with init, load-pack, export-pack, import, validate, stats, find, get, set, neighbours, trace, impact, view, target, health, sql, summary, and `branch list/create/diff/review/approve/merge/abandon`; `--branch` (or `EA_BRANCH`) and `--as` (or `EA_ROLE`) on every command | `src/ea/cli.py` | `ASVC1`–`ASVC4`, `ASVC7`, `ASVC8` | Running |
 | `ACMP8` | **View generator** — builds a view (focus, elements, relationships, states) from a query or a set of identifiers and renders it: Mermaid in the archreator notation from the pack's `notation`, draw.io with ArchiMate stencils and the element identifier on every shape, at grid positions or at the positions the browser reports; with state markers when asked (`marked`) | `src/ea/views/model.py`, `src/ea/views/mermaid.py`, `src/ea/views/drawio.py`; the answer composer `src/ea/agent/document.py` | `ASVC6`, `ASVC5` | Running |
 | `ACMP9` | **Branch overlay and merge** — the request-scoped current branch (a context variable set from the session or `--branch`), the overlay reads and writes of the store, the diff with base versions and conflicts, the merge item by item with a resolution per conflict, abandon; the merge-log rows the Branches page shows | `src/ea/backend/branching.py`, the overlay in `src/ea/backend/duckdb_backend.py`, `src/ea/services/branches.py` | `ASVC7` | Running |
 | `ACMP10` | **Proposal agent** — reads sources (pasted text, Markdown, text and CSV files, fetched links), resolves elements by identifier and by name and relationships against the metamodel, computes the pushback, applies the reviewed change set to a branch and keeps the proposal; a stub provider parses the Proposal Template's tables, a hosted provider reads free text with the read tools and submits a structured result through a `submit_proposal` tool | `src/ea/agent/proposal.py`, `templates/proposal-template.md` | `ASVC9` | Running (stub locally; the hosted provider needs a key) |
+| `ACMP11` | **Health and search services** — the search that reads names, identifiers, descriptions and attributes word by word and ranks the hits; bulk edits of many elements in one audited pass; the freshness and completeness figures the Health page shows, each with the identifiers behind it | `src/ea/services/search.py`, `src/ea/services/health.py`; `bulk_update()` in `src/ea/services/repository.py` | `ASVC2`, `ASVC10` | Running |
+| `ACMP12` | **Roles and review** — the role of the signed-in user (from workspace groups through the role configuration, or the debug persona locally), the permission checks every write goes through, and the review of a branch: request, approve per element type, send back, the reviewer assignments per type | `src/ea/services/roles.py`, `src/ea/services/reviews.py`; the personas in `src/ea/ui/context.py` | `ASVC7`, every writing service | Running |
 
 ## Relationships
 
@@ -55,6 +132,13 @@ imports only from layers to its left. SQL lives in `backend/` only
 | `ACMP10` | ▭ «Application Component» Proposal agent | `ACMP3` | ▭ «Application Component» Repository and graph services | uses | name matching, validation, the writes |
 | `ACMP10` | ▭ «Application Component» Proposal agent | `ACMP9` | ▭ «Application Component» Branch overlay and merge | uses | writes to a branch |
 | `ACMP6` | ▭ «Application Component» Web application | `ACMP10` | ▭ «Application Component» Proposal agent | uses | Propose page |
+| `ACMP6` | ▭ «Application Component» Web application | `ACMP11` | ▭ «Application Component» Health and search services | uses | Browse search, bulk edit, Health page |
+| `ACMP6` | ▭ «Application Component» Web application | `ACMP12` | ▭ «Application Component» Roles and review | uses | every control the role may not use is hidden or disabled, and every callback checks again |
+| `ACMP7` | ▭ «Application Component» Command line | `ACMP12` | ▭ «Application Component» Roles and review | uses | `--as` names the role a command runs as |
+| `ACMP11` | ▭ «Application Component» Health and search services | `ACMP3` | ▭ «Application Component» Repository and graph services | uses | |
+| `ACMP12` | ▭ «Application Component» Roles and review | `ACMP9` | ▭ «Application Component» Branch overlay and merge | uses | a review decides a branch; the merge asks the review |
+| `ACMP2.1` | ▭ «Application Component» DuckDB backend | `ART1` | ▤ «Artifact» Repository file | holds | |
+| `ACMP2.2` | ▭ «Application Component» Databricks backend | `NODE2` | ⬒ «Node» Databricks workspace | runs on | **Pending — plateau `PLAT2`** |
 
 ## How to add
 

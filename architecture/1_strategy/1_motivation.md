@@ -4,12 +4,86 @@ _[← Strategy layer](./README.md) · [EA home](../README.md)_
 
 **Status: `◐` draft catalogue** — written from the owner's business case, the
 review of 2026-09-05 and the owner's decisions in that conversation; `ASM7` and
-`P8` added by initiative 2 on the same day. It is
+`P8` added by initiative 2 on the same day; the views moved to the top on
+2026-09-06. It is
 validated at the **Direction** gate with the owner and the information
 architect (see [scope/1_curriculum-poc.md](../scope/1_curriculum-poc.md)).
 
 **Source:** the owner's business case of 2026-09-05 and its review, both held
 privately by the product owner (see [reference/](../reference/README.md)).
+
+## Who pressures what
+
+```mermaid
+flowchart LR
+  stk1(["◍ «Stakeholder» Product owner [STK1]"]):::motivation
+  stk2(["◍ «Stakeholder» Information architect [STK2]"]):::motivation
+  stk3(["◍ «Stakeholder» Solution architects [STK3]"]):::motivation
+  stk5(["◍ «Stakeholder» Adopting organisation [STK5]"]):::motivation
+  drv1{{"✳ «Driver» EA is a data-integration problem [DRV1]"}}:::motivation
+  drv2{{"✳ «Driver» Agents need a queryable model [DRV2]"}}:::motivation
+  drv3{{"✳ «Driver» Information elements feed data and analytics processes [DRV3]"}}:::motivation
+  drv4{{"✳ «Driver» Openness [DRV4]"}}:::motivation
+  stk1 -->|concerned with| drv1
+  stk2 -->|concerned with| drv3
+  stk3 -->|concerned with| drv2
+  stk5 -->|concerned with| drv4
+
+  classDef motivation fill:#e6d6f5,stroke:#7e57c2,color:#333
+```
+
+## What the drivers and assessments ask for
+
+```mermaid
+flowchart LR
+  drv1{{"✳ «Driver» EA is a data-integration problem [DRV1]"}}:::motivation
+  drv2{{"✳ «Driver» Agents need a queryable model [DRV2]"}}:::motivation
+  drv3{{"✳ «Driver» Information elements feed data and analytics processes [DRV3]"}}:::motivation
+  drv4{{"✳ «Driver» Openness [DRV4]"}}:::motivation
+  asm2["⚖ «Assessment» Genie Ontology is not a graph [ASM2]"]:::motivation
+  asm5["⚖ «Assessment» The metamodel changes [ASM5]"]:::motivation
+  asm6["⚖ «Assessment» Content is small and largely draft [ASM6]"]:::motivation
+  asm7["⚖ «Assessment» Architects read diagrams, not graph layouts [ASM7]"]:::motivation
+  g1("◎ «Goal» Query the architecture sustainably [G1]"):::motivation
+  g2("◎ «Goal» Metamodel is configuration [G2]"):::motivation
+  g3("◎ «Goal» One code base, local and Databricks [G3]"):::motivation
+  g4("◎ «Goal» Show a working PoC within a month [G4]"):::motivation
+  g5("◎ «Goal» Reusable by any enterprise [G5]"):::motivation
+  drv1 --> g1
+  drv2 --> g1
+  drv3 --> g4
+  drv4 --> g5
+  asm2 --> g1
+  asm7 --> g1
+  asm5 --> g2
+  asm6 --> g3
+
+  classDef motivation fill:#e6d6f5,stroke:#7e57c2,color:#333
+```
+
+## How the goals are held: principles and outcomes
+
+```mermaid
+flowchart TB
+  g1("◎ «Goal» Query the architecture sustainably [G1]"):::motivation
+  g2("◎ «Goal» Metamodel is configuration [G2]"):::motivation
+  g4("◎ «Goal» Show a working PoC within a month [G4]"):::motivation
+  g5("◎ «Goal» Reusable by any enterprise [G5]"):::motivation
+  p1["▣ «Principle» Metamodel is data, never DDL [P1]"]:::motivation
+  p3["▣ «Principle» Agents draft, people approve [P3]"]:::motivation
+  p5["▣ «Principle» Nothing framework-specific in code [P5]"]:::motivation
+  p8["▣ «Principle» Diagrams are generated views, never the store [P8]"]:::motivation
+  out1("◎ «Outcome» Curriculum model loaded and queried [OUT1]"):::motivation
+  out2("◎ «Outcome» Information architect endorses the approach [OUT2]"):::motivation
+  g1 -->|realized by| out1
+  g4 -->|realized by| out2
+  g2 -->|realized by| p1
+  g5 -->|realized by| p5
+  g1 -->|realized by| p8
+  g1 -.->|constrained by| p3
+
+  classDef motivation fill:#e6d6f5,stroke:#7e57c2,color:#333
+```
 
 ## Stakeholders
 
@@ -91,28 +165,3 @@ privately by the product owner (see [reference/](../reference/README.md)).
 | `G5` | ◎ «Goal» Reusable by any enterprise | `P5` | ▣ «Principle» Nothing framework-specific in code | realized by | |
 | `ASM7` | ⚖ «Assessment» Architects read diagrams, not graph layouts | `G1` | ◎ «Goal» Query the architecture sustainably | influences | an answer needs a picture |
 | `G1` | ◎ «Goal» Query the architecture sustainably | `P8` | ▣ «Principle» Diagrams are generated views, never the store | realized by | |
-
-## Layer view
-
-```mermaid
-flowchart TB
-  stk1(["◍ Product owner [STK1]"]):::motivation
-  stk2(["◍ Information architect [STK2]"]):::motivation
-  drv1{{"✳ EA is a data-integration problem [DRV1]"}}:::motivation
-  drv2{{"✳ Agents need a queryable model [DRV2]"}}:::motivation
-  g1("◎ Query the architecture sustainably [G1]"):::motivation
-  g2("◎ Metamodel is configuration [G2]"):::motivation
-  g4("◎ Show a working PoC within a month [G4]"):::motivation
-  p1["▣ Metamodel is data, never DDL [P1]"]:::motivation
-  p3["▣ Agents draft, people approve [P3]"]:::motivation
-
-  stk1 -->|concerned with| drv1
-  stk2 -->|concerned with| drv2
-  drv1 -->|influences| g1
-  drv2 -->|influences| g1
-  g1 --> g4
-  g2 -->|realized by| p1
-  g1 -->|constrained by| p3
-
-  classDef motivation fill:#e6d6f5,stroke:#7e57c2,color:#333
-```

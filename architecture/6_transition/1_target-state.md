@@ -7,6 +7,77 @@ on 2026-09-05 after the business-case review. Approved at the **Direction**
 gate (recorded in [scope/1_curriculum-poc.md](../scope/1_curriculum-poc.md));
 the gaps beyond `PLAT1` are intent, not work.
 
+## The plateaus, in order
+
+```mermaid
+flowchart LR
+  p1["▭ «Plateau» Local PoC on DuckDB [PLAT1]"]:::implementation
+  p2["▭ «Plateau» Same application on Databricks [PLAT2]"]:::implementation
+  p3["▭ «Plateau» Real content with provenance [PLAT3]"]:::implementation
+  p4["▭ «Plateau» Governed change [PLAT4]"]:::implementation
+  p5["▭ «Plateau» Semantic front doors [PLAT5]"]:::implementation
+  p6["▭ «Plateau» Current EA tool retired [PLAT6]"]:::implementation
+  p2 -->|depends on| p1
+  p3 -->|depends on| p1
+  p4 -->|depends on| p2
+  p5 -->|depends on| p2
+  p5 -->|depends on| p3
+  p6 -->|depends on| p4
+  p6 -->|depends on| p5
+
+  classDef implementation fill:#f8d7da,stroke:#c0392b,color:#333
+```
+
+## Gaps closed so far, and by what
+
+```mermaid
+flowchart LR
+  p1["▭ «Plateau» Local PoC on DuckDB [PLAT1]"]:::implementation
+  p4["▭ «Plateau» Governed change [PLAT4]"]:::implementation
+  g9["△ «Gap» Views are graph layouts, not architecture diagrams [GAP9]"]:::implementation
+  g11["△ «Gap» No notation editor, hard-coded colours, fixed diagrams, graphs that overlap [GAP11]"]:::implementation
+  g5["△ «Gap» No change-set model [GAP5]"]:::implementation
+  g12["△ «Gap» No target state model [GAP12]"]:::implementation
+  g13["△ «Gap» No proposal intake [GAP13]"]:::implementation
+  g14["△ «Gap» No roles, no review before merge [GAP14]"]:::implementation
+  g15["△ «Gap» Nothing tells the model's health [GAP15]"]:::implementation
+  g9 -->|closed, initiative 2| p1
+  g11 -->|closed, initiative 3| p1
+  g12 -->|closed, initiative 4| p4
+  g13 -->|closed, initiative 5| p4
+  g5 -->|core closed, initiative 4| p4
+  g14 -->|closed, initiative 7| p4
+  g15 -->|closed, initiative 6| p1
+
+  classDef implementation fill:#f8d7da,stroke:#c0392b,color:#333
+```
+
+## Gaps still open
+
+```mermaid
+flowchart LR
+  p2["▭ «Plateau» Same application on Databricks [PLAT2]"]:::implementation
+  p3["▭ «Plateau» Real content with provenance [PLAT3]"]:::implementation
+  p5["▭ «Plateau» Semantic front doors [PLAT5]"]:::implementation
+  p6["▭ «Plateau» Current EA tool retired [PLAT6]"]:::implementation
+  g1["△ «Gap» No Delta backend [GAP1]"]:::implementation
+  g2["△ «Gap» No deployment bundle [GAP2]"]:::implementation
+  g3["△ «Gap» No real institutional content [GAP3]"]:::implementation
+  g4["△ «Gap» No source feeds [GAP4]"]:::implementation
+  g6["△ «Gap» No projection, glossary or Genie-based agent [GAP6]"]:::implementation
+  g7["△ «Gap» No tool server for external agents [GAP7]"]:::implementation
+  g8["△ «Gap» No retirement criteria for the current EA tool [GAP8]"]:::implementation
+  g1 -.-> p2
+  g2 -.-> p2
+  g3 -.-> p3
+  g4 -.-> p3
+  g6 -.-> p5
+  g7 -.-> p5
+  g8 -.-> p6
+
+  classDef implementation fill:#f8d7da,stroke:#c0392b,color:#333
+```
+
 ## Plateaus
 
 | ID | Plateau | Status | What is true when it is reached |
@@ -14,7 +85,7 @@ the gaps beyond `PLAT1` are intent, not work.
 | `PLAT1` | **Local PoC on DuckDB** — the four deliverables (metamodel manager, element browse and edit, CSV ingestion, grounded agent) run on a DuckDB file with the higher-education pack and the curriculum export; extended by initiative 2 with generated architecture views and answer documents | In flight — initiatives 1 and 2 | The owner can show the app on the curriculum slice; the information architect has seen it |
 | `PLAT2` | **Same application on Databricks** — the app runs on Databricks Apps, the store is a Unity Catalog schema of Delta tables, identity comes from the workspace | Planned | Same tests pass against a dev catalog; one deployment bundle |
 | `PLAT3` | **Real content with provenance** — every type of the institution's metamodel is loaded, every type declares mirrored, authored or enriched semantics, and the mirrored ones are fed from their sources (the CMDB, the HR system, the project portfolio tool, the information asset register, the data platform's metadata catalogue) by scheduled jobs | Planned | A fact from the CMDB is never edited by hand in the repository; freshness is visible per source |
-| `PLAT4` | **Governed change** — proposals are change sets with a base version, an impact assessment and a recorded approval; stewards and owners review in the app; sensitive attributes are granted by role | Planned | No approved status is written without a recorded human decision |
+| `PLAT4` | **Governed change** — proposals are change sets with a base version, an impact assessment and a recorded approval; stewards and owners review in the app; sensitive attributes are granted by role | In flight — initiatives 4 to 7 delivered the change sets, the roles and the review on DuckDB; the platform's identity and grants wait for `PLAT2` | No approved status is written without a recorded human decision |
 | `PLAT5` | **Semantic front doors** — a typed, commented projection with keys is generated from the metamodel into Unity Catalog; Business Definitions and Measures are published to the Unity Catalog business glossary and metric views; Genie-based agents over the projection, or whichever agent framework the platform offers, traverse the graph and answer in Markdown, with questions, answers and user feedback logged for monitoring and improvement; a tool server exposes the model to external agents | Planned | The three reference questions are answered through a Genie-based agent and through an external agent, with the same identifiers |
 | `PLAT6` | **Current EA tool retired** — the repository is the system of record for authored types, the mirror for the rest, and the diagrams architects need are generated from it | Planned | The current tool's licence not renewed; retirement criteria agreed with the IT division's enterprise architecture team |
 
@@ -35,6 +106,8 @@ the gaps beyond `PLAT1` are intent, not work.
 | `GAP11` | **No notation editor, hard-coded colours, fixed diagrams, graphs that overlap** — the metamodel's visual styles had no editor, the app's domain colours lived in code, generated diagrams could not be arranged, and the network graphs had no grouping | `PLAT1` as extended by initiative 2 and `PLAT1` as extended further | Initiative 3 (built 2026-09-05): Notation tab with live preview, colours in the pack, draggable views exported to draw.io, one graph panel with grouping and compound layouts; roles documented, none enforced by the owner's decision |
 | `GAP12` | **No target state model** — an element has a workflow status and the source tool's lifecycle text, no current state against a target state, no work package to analyse by | `PLAT1` and `PLAT4` | Initiative 4 (built 2026-09-06): current and target state on every element and relationship, derived from lifecycle text on import, the Target state page with the current-by-target matrix, marked views in Mermaid and draw.io |
 | `GAP13` | **No proposal intake** — a design document cannot be handed to the repository; every element is typed in by hand or imported from a tool | `PLAT1` and `PLAT4` | Initiative 5 (built 2026-09-06): the Propose page with the editable merge-log preview, the pushback rule, the Proposal Template; a hosted reader for free text, a stub for the template |
+| `GAP14` | **No roles, no review before merge** — every user could do everything and any author could merge their own branch; nothing recorded a second person's decision | `PLAT1` and `PLAT4` | Initiative 7 (built 2026-09-06): roles derived from groups (Admin, Architect, Reviewer, Reader, Agent) enforced in the app and the command line, a debug persona switcher locally, review requested and decided per element type before a merge |
+| `GAP15` | **Nothing tells the model's health** — no way to see which source went stale, which types lack descriptions or owners, or to fix many rows at once; search read names only | `PLAT1` and `PLAT3` | Initiative 6 (built 2026-09-06): full-text search over descriptions and attributes, bulk edit from Browse, the Health page with freshness per source and completeness per type |
 
 ## Relationships
 

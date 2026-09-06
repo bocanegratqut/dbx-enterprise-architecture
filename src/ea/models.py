@@ -212,7 +212,8 @@ class Relationship:
         _check_states(f"relationship {self.relationship_id}", self.current_state, self.target_state)
 
 
-BRANCH_STATUSES = ["open", "merged", "abandoned"]
+BRANCH_STATUSES = ["open", "in_review", "approved", "merged", "abandoned"]
+OPEN_STATUSES = ("open", "in_review", "approved")  # a branch that can still be merged or abandoned
 
 
 @dataclass
@@ -292,10 +293,31 @@ class Proposal:
 
 
 @dataclass
+class Review:
+    """One reviewer's decision on a branch, for the element types they cover."""
+
+    review_id: str
+    branch_id: str
+    reviewer: str
+    decision: str  # approve | send_back
+    type_ids: list[str] = field(default_factory=list)
+    comment: str = ""
+    decided_at: datetime | None = None
+
+
+ROLES = ("reader", "reviewer", "architect", "admin", "agent")
+
+
+@dataclass
 class User:
     username: str
     display_name: str = ""
     groups: list[str] = field(default_factory=list)
+    role: str = "reader"
+
+
+class Forbidden(Exception):
+    """The role of the request may not do this."""
 
 
 # ------------------------------------------------------------------- reports
