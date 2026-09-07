@@ -117,7 +117,11 @@ def create_app() -> dash.Dash:
     )
     def toggle_mobile_nav(_clicks, _pathname, opened):
         next_open = not bool(opened) if ctx.triggered_id == ids.NAV_BURGER else False
-        return next_open, next_open, {"width": 220, "breakpoint": "sm", "collapsed": {"mobile": not next_open}}
+        return (
+            next_open,
+            next_open,
+            {"width": 220, "breakpoint": "sm", "collapsed": {"mobile": not next_open}},
+        )
 
     @app.callback(
         Output(ids.PAGE, "children"),
