@@ -417,7 +417,6 @@ def render(ctx: AppContext) -> html.Div:
                                     "Paste the proposal",
                                     placeholder="Paste the design page here (Markdown with the template's tables works without a model key; free text needs the hosted reader)…",
                                     min_rows=8,
-
                                 ),
                                 dcc.Upload(
                                     id=ids.PR_UPLOAD,

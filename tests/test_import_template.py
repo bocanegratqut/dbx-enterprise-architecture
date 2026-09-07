@@ -12,8 +12,11 @@ def test_import_template_archive_contains_guidance_and_contract_files():
         assert archive.namelist() == list(TEMPLATE_FILES)
         assert archive.read("README.md").decode("utf-8").startswith("# EA import template")
         assert archive.read("elements.csv").decode("utf-8").splitlines()[0].startswith("id,type,name")
-        assert archive.read("relationships.csv").decode("utf-8").splitlines()[0].startswith(
-            "src_id,rel_type,dst_id"
+        assert (
+            archive.read("relationships.csv")
+            .decode("utf-8")
+            .splitlines()[0]
+            .startswith("src_id,rel_type,dst_id")
         )
         assert archive.read("links.csv").decode("utf-8").splitlines()[0] == "element_id,url,label"
 

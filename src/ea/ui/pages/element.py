@@ -214,7 +214,10 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
     overview = dmc.SimpleGrid(
         [
             dmc.Paper(
-                [dmc.Title("Description", order=5, mb="xs"), markdown(e.description_md, f"el-desc-{e.element_id}")],
+                [
+                    dmc.Title("Description", order=5, mb="xs"),
+                    markdown(e.description_md, f"el-desc-{e.element_id}"),
+                ],
                 p="md",
                 withBorder=True,
             ),
