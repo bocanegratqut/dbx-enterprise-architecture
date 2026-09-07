@@ -36,6 +36,20 @@ relationship types with provenance, `ANY` targets and stewardship qualifiers).
 The sample content is a fictional university's curriculum slice so the demo
 runs without any institutional data.
 
+## A quick look
+
+Every screen below runs on the sample model — a fictional university's
+curriculum slice — seeded by `make seed`.
+
+| | |
+| --- | --- |
+| **Browse** — ranked word search with bulk edit and a matched-in passage ![Browse](docs/screenshots/browse.png) | **Element** — Markdown description, attributes, links, state card ![Element](docs/screenshots/element.png) |
+| **Markdown editing** — one editor everywhere: insert actions, Edit/Split/Preview, Mermaid rendered live ![Markdown editor](docs/screenshots/markdown-editor.png) | **Metamodel** — the type graph as data, editable and exportable as a pack ![Metamodel](docs/screenshots/metamodel.png) |
+| **Impact** — upstream and downstream closure with completeness hints ![Impact](docs/screenshots/impact.png) | **Generated architecture view** — drawn from the model, every shape an element, pan/zoom/arrange ![Generated view](docs/screenshots/generated-view.png) |
+| **Ask** — an answer as a document: view first, cited identifiers, tool trace ![Ask](docs/screenshots/ask.png) | **Import** — template download, validation report, idempotent load ![Import](docs/screenshots/import.png) |
+| **Propose** — destination first, then the proposal; the reader turns it into a merge log ![Propose](docs/screenshots/propose.png) | **Target state** — current against intended, per work package ![Target state](docs/screenshots/target.png) |
+| **Branches** — overlays on main with a merge log and review before merge ![Branches](docs/screenshots/branches.png) | **Health** — freshness per source, completeness per type, every figure a link ![Health](docs/screenshots/health.png) |
+
 ## Quick start
 
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
