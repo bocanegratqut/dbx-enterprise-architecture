@@ -106,8 +106,9 @@ through its tools (read). On the platform the role comes from the forwarded
 identity and its workspace groups through `EA_ROLE_GROUPS`
 (`admin=ea-admins;architect=ea-architects;reviewer=ea-reviewers`); locally,
 with mock authentication, the header carries a **debug persona switcher** with
-Admin, Architect, Reviewer, Reader and Agent, so every path can be walked
-without a workspace.
+Admin, Architect, Reviewer and Reader, so every user path can be walked
+without a workspace (the Agent role belongs to the assistant's tools, not to
+a person).
 
 A branch goes `open → in review → approved → merged`. The author requests the
 review; the branch freezes; the Branches page names, per element type the

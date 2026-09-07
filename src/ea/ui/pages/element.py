@@ -25,8 +25,10 @@ from ea.ui.components import (
     alert,
     element_anchor,
     icon,
+    keep_selected_option,
     kv_table,
     markdown,
+    markdown_editor,
     mermaid_block,
     simple_table,
     status_badge,
@@ -189,9 +191,6 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
                             dmc.Text(f"key {e.key}", size="sm", c="dimmed")
                             if e.key and e.key != e.element_id
                             else None,
-                            dmc.Text(f"lifecycle {e.lifecycle_status}", size="sm", c="dimmed")
-                            if e.lifecycle_status
-                            else None,
                             dmc.Text(f"source {e.source_system}", size="sm", c="dimmed")
                             if e.source_system
                             else None,
@@ -215,7 +214,7 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
     overview = dmc.SimpleGrid(
         [
             dmc.Paper(
-                [dmc.Title("Description", order=5, mb="xs"), markdown(e.description_md)],
+                [dmc.Title("Description", order=5, mb="xs"), markdown(e.description_md, f"el-desc-{e.element_id}")],
                 p="md",
                 withBorder=True,
             ),
@@ -254,19 +253,10 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
                         dmc.TextInput(id=ids.EL_NAME, label="Name", value=e.name, required=True),
                         dmc.TextInput(id=ids.EL_KEY, label="Key", value=e.key),
                         dmc.Select(id=ids.EL_STATUS, label="Status", data=STATUS_OPTIONS, value=e.status),
-                        dmc.TextInput(
-                            id=ids.EL_LIFECYCLE, label="Lifecycle status", value=e.lifecycle_status
-                        ),
                     ],
-                    cols={"base": 1, "md": 4},
+                    cols={"base": 1, "md": 3},
                 ),
-                dmc.Textarea(
-                    id=ids.EL_DESC,
-                    label="Description (Markdown)",
-                    value=e.description_md,
-                    autosize=True,
-                    minRows=6,
-                ),
+                markdown_editor(ids.EL_DESC, "Description (Markdown)", value=e.description_md, min_rows=6),
                 dmc.Textarea(
                     id=ids.EL_LINKS,
                     label="Links (one per line, optionally `url | label`)",
@@ -376,14 +366,27 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
                                     id=ids.EL_REL_OTHER,
                                     placeholder="Search the other element…",
                                     searchable=True,
-                                    data=[],
+                                    data=[
+                                        {
+                                            "value": o.element_id,
+                                            "label": f"{o.name} [{o.element_id}]",
+                                        }
+                                        for o in ctx.repo.search(limit=50)
+                                        if o.element_id != element_id
+                                    ],
                                     w=380,
                                     nothingFoundMessage="Type to search",
                                 ),
                                 dmc.Select(
                                     id=ids.EL_REL_TYPE,
                                     placeholder="Relationship",
-                                    data=[],
+                                    data=[
+                                        {
+                                            "value": r.id,
+                                            "label": f"{r.name}  (→ {ctx.registry.types[r.target].name if r.target in ctx.registry.types else r.target})",
+                                        }
+                                        for r in ctx.registry.rel_types_for_type(e.type_id)[0]
+                                    ],
                                     w=300,
                                     searchable=True,
                                 ),
@@ -440,7 +443,7 @@ def render(ctx: AppContext, element_id: str) -> html.Div:
                 "el",
                 ctx.registry,
                 gp.raw_from_subgraph(ctx.registry, ctx.graph.neighbours(element_id, 1)),
-                height="620px",
+                height="70vh",
             ),
             dmc.Divider(my="md", label="Architecture view (generated from the model)", labelPosition="left"),
             mermaid_block(
@@ -513,8 +516,7 @@ def register(app: dash.Dash) -> None:
         State(ids.EL_NAME, "value"),
         State(ids.EL_KEY, "value"),
         State(ids.EL_STATUS, "value"),
-        State(ids.EL_LIFECYCLE, "value"),
-        State(ids.EL_DESC, "value"),
+        State({"type": ids.MD_TEXT, "id": ids.EL_DESC}, "value"),
         State(ids.EL_LINKS, "value"),
         State(ids.EL_CURRENT_STATE, "value"),
         State(ids.EL_TARGET_STATE, "value"),
@@ -532,7 +534,6 @@ def register(app: dash.Dash) -> None:
         name,
         key,
         status,
-        lifecycle,
         desc,
         links_text,
         current_state,
@@ -558,7 +559,6 @@ def register(app: dash.Dash) -> None:
                 name=name,
                 key=key or "",
                 status=status,
-                lifecycle_status=lifecycle or "",
                 description_md=desc or "",
                 attrs=attrs,
                 links=_parse_links(element_id, links_text),
@@ -584,14 +584,16 @@ def register(app: dash.Dash) -> None:
         Output(ids.EL_REL_OTHER, "data"),
         Input(ids.EL_REL_OTHER, "searchValue"),
         State(ids.EL_ID, "data"),
+        State(ids.EL_REL_OTHER, "value"),
+        State(ids.EL_REL_OTHER, "data"),
         prevent_initial_call=True,
     )
-    def search_other(text, element_id):
+    def search_other(text, element_id, value, data):
         if not text or len(text) < 2:
             return no_update
         ctx = get_context()
         rows = ctx.repo.search(text, limit=25)
-        return [
+        options = [
             {
                 "value": e.element_id,
                 "label": f"{e.name} [{e.element_id}] · {ctx.registry.types[e.type_id].name if e.type_id in ctx.registry.types else e.type_id}",
@@ -599,6 +601,11 @@ def register(app: dash.Dash) -> None:
             for e in rows
             if e.element_id != element_id
         ]
+        # Picking an option makes the label the next search term, which matches nothing:
+        # keep the list as it is rather than dropping the option the value refers to.
+        if not options:
+            return no_update
+        return keep_selected_option(options, value, data)
 
     @app.callback(
         Output(ids.EL_REL_TYPE, "data"),
@@ -612,13 +619,19 @@ def register(app: dash.Dash) -> None:
     )
     def rel_type_options(other_id, direction, chosen, element_id):
         ctx = get_context()
-        if not other_id:
+        me = ctx.backend.get_element(element_id)
+        if not me:
             return [], [], True
-        me, other = ctx.backend.get_element(element_id), ctx.backend.get_element(other_id)
-        if not me or not other:
-            return [], [], True
-        src_t, dst_t = (me.type_id, other.type_id) if direction == "out" else (other.type_id, me.type_id)
-        allowed = ctx.registry.allowed_rel_types(src_t, dst_t)
+        if other_id:
+            other = ctx.backend.get_element(other_id)
+            if not other:
+                return [], [], True
+            src_t, dst_t = (me.type_id, other.type_id) if direction == "out" else (other.type_id, me.type_id)
+            allowed = ctx.registry.allowed_rel_types(src_t, dst_t)
+        else:
+            # No other end yet: offer every relationship this element's type may take in that direction.
+            outgoing, incoming = ctx.registry.rel_types_for_type(me.type_id)
+            allowed = outgoing if direction == "out" else incoming
         data = [
             {
                 "value": r.id,

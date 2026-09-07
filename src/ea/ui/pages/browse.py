@@ -12,7 +12,7 @@ from dash import Input, Output, State, dcc, html, no_update
 from ea.models import CURRENT_STATES, TARGET_STATES, Forbidden, ValidationError
 from ea.services.health import COMPLETENESS_FACETS
 from ea.ui import ids
-from ea.ui.components import alert, icon, page_title
+from ea.ui.components import alert, icon, markdown_editor, modal_title, page_title
 from ea.ui.context import AppContext, get_context
 
 COLUMNS = [
@@ -34,7 +34,6 @@ COLUMNS = [
     {"field": "status", "width": 100},
     {"field": "current_state", "headerName": "current", "width": 110},
     {"field": "target_state", "headerName": "target", "width": 110},
-    {"field": "lifecycle_status", "headerName": "lifecycle", "width": 100},
     {"field": "source_system", "headerName": "source", "width": 100},
     {
         "field": "snippet",
@@ -178,7 +177,7 @@ def render(ctx: AppContext, search: str | None = None) -> html.Div:
             ),
             dmc.Modal(
                 id=ids.NEW_MODAL,
-                title="New element",
+                title=modal_title("New element", ids.NEW_MODAL),
                 children=dmc.Stack(
                     [
                         dmc.Select(
@@ -189,9 +188,7 @@ def render(ctx: AppContext, search: str | None = None) -> html.Div:
                             required=True,
                         ),
                         dmc.TextInput(id=ids.NEW_NAME, label="Name", required=True),
-                        dmc.Textarea(
-                            id=ids.NEW_DESC, label="Description (Markdown)", autosize=True, minRows=3
-                        ),
+                        markdown_editor(ids.NEW_DESC, "Description (Markdown)", min_rows=5),
                         html.Div(id=ids.NEW_FEEDBACK),
                         dmc.Group([dmc.Button("Create", id=ids.NEW_SAVE)], justify="flex-end"),
                     ]
@@ -199,7 +196,7 @@ def render(ctx: AppContext, search: str | None = None) -> html.Div:
             ),
             dmc.Modal(
                 id=ids.BULK_MODAL,
-                title="Bulk edit the ticked elements",
+                title=modal_title("Bulk edit the ticked elements", ids.BULK_MODAL),
                 size="lg",
                 children=dmc.Stack(
                     [
@@ -237,7 +234,6 @@ def render(ctx: AppContext, search: str | None = None) -> html.Div:
                                     clearable=True,
                                 ),
                                 dmc.TextInput(id=ids.BULK_NOTE, label="Target note"),
-                                dmc.TextInput(id=ids.BULK_LIFECYCLE, label="Lifecycle status"),
                                 dmc.TextInput(id=ids.BULK_ATTR_NAME, label="Attribute", placeholder="name"),
                                 dmc.TextInput(id=ids.BULK_ATTR_VALUE, label="Attribute value"),
                             ],
@@ -328,7 +324,6 @@ def register(app: dash.Dash) -> None:
         State(ids.BULK_TARGET, "value"),
         State(ids.BULK_WP, "value"),
         State(ids.BULK_NOTE, "value"),
-        State(ids.BULK_LIFECYCLE, "value"),
         State(ids.BULK_ATTR_NAME, "value"),
         State(ids.BULK_ATTR_VALUE, "value"),
         State(ids.BROWSE_TYPE, "value"),
@@ -346,7 +341,6 @@ def register(app: dash.Dash) -> None:
         target,
         wp,
         note,
-        lifecycle,
         attr_name,
         attr_value,
         type_id,
@@ -366,7 +360,6 @@ def register(app: dash.Dash) -> None:
             "target_state": target,
             "target_work_package": wp,
             "target_note": note,
-            "lifecycle_status": lifecycle,
         }
         attribute = (attr_name.strip(), attr_value) if (attr_name or "").strip() else None
         if not any(fields.values()) and not attribute:
@@ -392,7 +385,7 @@ def register(app: dash.Dash) -> None:
         Input(ids.NEW_SAVE, "n_clicks"),
         State(ids.NEW_TYPE, "value"),
         State(ids.NEW_NAME, "value"),
-        State(ids.NEW_DESC, "value"),
+        State({"type": ids.MD_TEXT, "id": ids.NEW_DESC}, "value"),
         prevent_initial_call=True,
         running=[(Output(ids.NEW_SAVE, "loading"), True, False)],
     )
