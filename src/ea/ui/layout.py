@@ -8,7 +8,7 @@ from dash import dcc, html
 from ea.backend.branching import MAIN
 from ea.services.roles import DESCRIPTIONS, LABELS
 from ea.ui import ids
-from ea.ui.components import icon
+from ea.ui.components import icon, modal_title
 
 ROLE_COLOURS = {"admin": "red", "architect": "indigo", "reviewer": "teal", "reader": "gray", "agent": "cyan"}
 
@@ -57,11 +57,15 @@ def role_badge(role: str, display_name: str = "") -> dmc.Badge:
 
 
 def persona_switcher(persona: str) -> dmc.Select:
-    """The debug switcher of mock authentication: any of the five roles a click away, Admin by default."""
+    """The debug switcher of mock authentication: the four user roles a click away, Admin by default."""
     return dmc.Select(
         id=ids.PERSONA_SELECT,
-        data=[{"value": r, "label": f"{LABELS[r]} — {DESCRIPTIONS[r][:48]}…"} for r in LABELS],
-        value=persona,
+        data=[
+            {"value": r, "label": f"{LABELS[r]} \u2014 {DESCRIPTIONS[r][:48]}\u2026"}
+            for r in LABELS
+            if r != "agent"
+        ],
+        value=persona if persona != "agent" else "admin",
         w=200,
         size="sm",
         allowDeselect=False,
@@ -73,7 +77,7 @@ def persona_switcher(persona: str) -> dmc.Select:
 def new_branch_modal(work_packages: list[dict[str, str]]) -> dmc.Modal:
     return dmc.Modal(
         id=ids.BRANCH_NEW_MODAL,
-        title="New branch",
+        title=modal_title("New branch", ids.BRANCH_NEW_MODAL),
         children=dmc.Stack(
             [
                 dmc.Text(
@@ -127,6 +131,7 @@ def shell(
         children=[
             dcc.Location(id=ids.URL, refresh=False),
             dcc.Store(id=ids.NAV_VERSION, data=0),
+            dcc.Store(id=ids.NAVBAR_OPEN, data=False),
             dcc.Download(id=ids.DOWNLOAD),
             dmc.NotificationContainer(id=ids.NOTIFY, position="top-right"),
             new_branch_modal(work_packages or []),
@@ -137,6 +142,12 @@ def shell(
                             [
                                 html.Div(
                                     [
+                                        dmc.Burger(
+                                            id=ids.NAV_BURGER,
+                                            opened=False,
+                                            hiddenFrom="sm",
+                                            size="sm",
+                                        ),
                                         html.Div(
                                             icon("tabler:topology-star-3", 20), className="ea-brand-mark"
                                         ),
@@ -183,11 +194,12 @@ def shell(
                                         persona_switcher(persona) if persona else None,
                                         dmc.Badge(pack_name, variant="light", color="indigo", size="lg"),
                                     ],
+                                    className="ea-header-controls",
                                     gap="xs",
                                 ),
                             ],
+                            className="ea-header-inner",
                             justify="space-between",
-                            h=56,
                             px="md",
                         )
                     ),
@@ -217,11 +229,12 @@ def shell(
                         )
                     ),
                     dmc.AppShellMain(
-                        html.Div(id=ids.PAGE, style={"padding": "1rem 1.5rem", "maxWidth": 1400})
+                        html.Div(id=ids.PAGE, style={"padding": "1rem 1.5rem", "width": "100%"})
                     ),
                 ],
-                header={"height": 56},
-                navbar={"width": 220, "breakpoint": "sm"},
+                id=ids.APP_SHELL,
+                header={"height": {"base": 204, "sm": 132, "xl": 56}},
+                navbar={"width": 220, "breakpoint": "sm", "collapsed": {"mobile": True}},
                 padding="md",
             ),
         ],

@@ -127,6 +127,10 @@
     return out;
   }
 
+  function arranging(evt) {
+    return evt.ctrlKey || evt.metaKey;
+  }
+
   function enableDrag(svg, onChange) {
     const nodes = nodeInfo(svg);
     const edges = edgeInfo(svg, nodes);
@@ -138,10 +142,11 @@
     }
     Object.keys(nodes).forEach(function (k) {
       const n = nodes[k];
-      n.el.style.cursor = 'grab';
       n.el.addEventListener('pointerdown', function (evt) {
+        // a plain drag belongs to the canvas; only the modifier moves a shape
+        if (!arranging(evt)) { return; }
         dragging = k; start = toSvg(evt); origin = { cx: n.cx, cy: n.cy };
-        n.el.style.cursor = 'grabbing'; evt.preventDefault(); evt.stopPropagation();
+        evt.preventDefault(); evt.stopPropagation();
         try { n.el.setPointerCapture(evt.pointerId); } catch (e) { /* older browsers */ }
       });
       n.el.addEventListener('pointermove', function (evt) {
@@ -154,7 +159,7 @@
       });
       const end = function (evt) {
         if (dragging !== k) { return; }
-        dragging = null; n.el.style.cursor = 'grab';
+        dragging = null;
         // let the canvas grow with the shapes so nothing is clipped
         try {
           const bb = svg.getBBox();
@@ -169,12 +174,91 @@
     return positionsOf(nodes);
   }
 
+  // ---------------------------------------------------------------- pan and zoom
+  // The rendered SVG sits on a canvas the reader drags and scales. A plain drag pans,
+  // wherever it starts; Ctrl (Command on a Mac) turns the same drag into a shape move.
+  const viewports = {};
+  const MIN_K = 0.05, MAX_K = 4;
+
+  function applyView(v) {
+    v.canvas.style.transform = 'translate(' + v.x + 'px, ' + v.y + 'px) scale(' + v.k + ')';
+  }
+
+  function contentSize(v) {
+    const r = v.svg.getBoundingClientRect();
+    return { w: r.width / v.k, h: r.height / v.k };
+  }
+
+  function fitView(v, pad) {
+    const p = pad === undefined ? 16 : pad;
+    const cw = v.container.clientWidth, ch = v.container.clientHeight;
+    const s = contentSize(v);
+    if (!s.w || !s.h || !cw || !ch) { return; }
+    v.k = Math.max(MIN_K, Math.min(MAX_K, Math.min((cw - 2 * p) / s.w, (ch - 2 * p) / s.h)));
+    v.x = (cw - s.w * v.k) / 2;
+    v.y = (ch - s.h * v.k) / 2;
+    applyView(v);
+  }
+
+  function zoomAt(v, px, py, factor) {
+    const k = Math.max(MIN_K, Math.min(MAX_K, v.k * factor));
+    const r = k / v.k;
+    v.x = px - r * (px - v.x);
+    v.y = py - r * (py - v.y);
+    v.k = k;
+    applyView(v);
+  }
+
+  function setupViewport(container, svg) {
+    const canvas = document.createElement('div');
+    canvas.className = 'ea-mermaid-canvas';
+    canvas.appendChild(svg);
+    container.innerHTML = '';
+    container.appendChild(canvas);
+    const v = { container: container, canvas: canvas, svg: svg, k: 1, x: 0, y: 0, touched: false };
+    viewports[container.id] = v;
+
+    container.addEventListener('wheel', function (evt) {
+      evt.preventDefault();
+      v.touched = true;
+      const r = container.getBoundingClientRect();
+      zoomAt(v, evt.clientX - r.left, evt.clientY - r.top, Math.exp(-evt.deltaY * 0.0015));
+    }, { passive: false });
+
+    let pan = null;
+    container.addEventListener('pointerdown', function (evt) {
+      if (arranging(evt) && evt.target.closest && evt.target.closest('g.node')) { return; }
+      pan = { px: evt.clientX, py: evt.clientY, x: v.x, y: v.y };
+      v.touched = true;
+      container.classList.add('is-panning');
+      try { container.setPointerCapture(evt.pointerId); } catch (e) { /* older browsers */ }
+    });
+    container.addEventListener('pointermove', function (evt) {
+      if (!pan) { return; }
+      v.x = pan.x + (evt.clientX - pan.px);
+      v.y = pan.y + (evt.clientY - pan.py);
+      applyView(v);
+    });
+    const endPan = function () { pan = null; container.classList.remove('is-panning'); };
+    container.addEventListener('pointerup', endPan);
+    container.addEventListener('pointercancel', endPan);
+    container.addEventListener('pointerleave', endPan);
+
+    // the container may still be laying out (or hidden on another tab) when the SVG lands
+    fitView(v);
+    requestAnimationFrame(function () { if (!v.touched) { fitView(v); } });
+    if (window.ResizeObserver) {
+      new ResizeObserver(function () { if (!v.touched) { fitView(v); } }).observe(container);
+    }
+    return v;
+  }
+
   // Render `code` into the target container, make it draggable, return a promise of the positions.
   window.eaViews = {
     render: function (targetId, code, onChange) {
       const el = document.getElementById(targetId);
       if (!el) { return Promise.resolve(null); }
-      if (!code || !code.trim()) { el.innerHTML = ''; return Promise.resolve({}); }
+      if (!code || !code.trim()) { el.innerHTML = ''; delete viewports[targetId]; return Promise.resolve({}); }
       if (!ensureMermaid()) { el.innerHTML = '<div style="color:#c92a2a;font-size:12px">Mermaid is not loaded.</div>'; return Promise.resolve(null); }
       const uid = 'ea-svg-' + Math.random().toString(36).slice(2, 10);
       return window.mermaid.render(uid, code).then(function (r) {
@@ -182,11 +266,56 @@
         const svg = el.querySelector('svg');
         if (!svg) { return {}; }
         svg.style.maxWidth = 'none';
-        return enableDrag(svg, onChange);
+        const positions = enableDrag(svg, onChange);
+        setupViewport(el, svg);
+        return positions;
       }).catch(function (err) {
         el.innerHTML = '<pre style="color:#c92a2a;font-size:12px;white-space:pre-wrap">' + String(err) + '</pre>';
         return null;
       });
     },
+
+    zoom: function (targetId, factor) {
+      const v = viewports[targetId];
+      if (!v) { return; }
+      v.touched = true;
+      zoomAt(v, v.container.clientWidth / 2, v.container.clientHeight / 2, factor);
+    },
+
+    fit: function (targetId) {
+      const v = viewports[targetId];
+      if (!v) { return; }
+      v.touched = false;
+      fitView(v);
+    },
+
+    fullscreen: function (targetId) {
+      const v = viewports[targetId];
+      if (!v) { return; }
+      const frame = v.container.closest('.ea-mermaid-frame') || v.container;
+      if (document.fullscreenElement) { document.exitFullscreen(); return; }
+      if (frame.requestFullscreen) { frame.requestFullscreen(); }
+    },
   };
+
+  document.addEventListener('fullscreenchange', function () {
+    // the viewport changes size on the way in and on the way out
+    Object.keys(viewports).forEach(function (id) {
+      setTimeout(function () { fitView(viewports[id]); }, 120);
+    });
+  });
+
+  function showArrangeCursor(on) {
+    document.querySelectorAll('.ea-mermaid').forEach(function (el) {
+      el.classList.toggle('is-arranging', on);
+    });
+  }
+  document.addEventListener('keydown', function (evt) {
+    if (evt.key === 'Control' || evt.key === 'Meta') { showArrangeCursor(true); }
+  });
+  document.addEventListener('keyup', function (evt) {
+    if (evt.key === 'Control' || evt.key === 'Meta') { showArrangeCursor(false); }
+  });
+  window.addEventListener('blur', function () { showArrangeCursor(false); });
 })();
+

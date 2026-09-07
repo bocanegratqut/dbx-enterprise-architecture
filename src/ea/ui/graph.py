@@ -49,6 +49,7 @@ EMPTY: dict[str, Any] = {"nodes": [], "edges": [], "centre": None}
 
 # Pattern-matching ids: one panel per page, several panels never collide.
 CY, STORE, GROUP, LAYOUT, FIT, LEGEND = "gp-cy", "gp-store", "gp-group", "gp-layout", "gp-fit", "gp-legend"
+ZOOM_IN, ZOOM_OUT, FULL = "gp-zoom-in", "gp-zoom-out", "gp-full"
 
 
 def is_element_node(data: dict[str, Any] | None) -> bool:
@@ -492,11 +493,11 @@ def graph_panel(
     panel_id: str,
     registry: Registry,
     raw: dict[str, Any],
-    height: str = "620px",
+    height: str = "70vh",
     group_by: str = "domain",
     layout: str = "grouped",
     extra_controls: list[Any] | None = None,
-    hint: str = "Tap a node to open it.",
+    hint: str = "Tap a node to open it; drag to pan, scroll to zoom, Ctrl-drag to move a node.",
 ) -> html.Div:
     return html.Div(
         [
@@ -525,6 +526,9 @@ def graph_panel(
                         variant="light",
                         leftSection=icon("tabler:arrows-maximize", 14),
                     ),
+                    _panel_control(ZOOM_OUT, panel_id, "tabler:minus", "Zoom out"),
+                    _panel_control(ZOOM_IN, panel_id, "tabler:plus", "Zoom in"),
+                    _panel_control(FULL, panel_id, "tabler:maximize", "Full screen (Escape leaves it)"),
                     html.Div(legend(registry), id={"type": LEGEND, "id": panel_id}),
                 ],
                 gap="sm",
@@ -533,17 +537,27 @@ def graph_panel(
             ),
             cyto.Cytoscape(
                 id=cy_id(panel_id),
+                className="ea-graph-canvas",
                 elements=elements(registry, raw, group_by, layout),
                 stylesheet=stylesheet(),
                 layout=layout_spec(layout),
                 style={"width": "100%", "height": height, "background": "#fbfcfd", "borderRadius": "8px"},
-                minZoom=0.15,
+                minZoom=0.05,
                 maxZoom=3,
                 wheelSensitivity=0.2,
                 boxSelectionEnabled=False,
+                autoungrabify=True,  # a plain drag pans; ea-graph.js frees the nodes while Ctrl is held
             ),
             dmc.Text(hint, size="xs", c="dimmed", mt=4),
-        ]
+        ],
+        className="ea-graph-frame",
+    )
+
+
+def _panel_control(kind: str, panel_id: str, icon_name: str, label: str) -> dmc.Tooltip:
+    return dmc.Tooltip(
+        dmc.ActionIcon(icon(icon_name, 14), id={"type": kind, "id": panel_id}, variant="default", size="sm"),
+        label=label,
     )
 
 
@@ -586,9 +600,7 @@ def register(app: dash.Dash) -> None:
         function(n, layout) {
           if (!n) { return window.dash_clientside.no_update; }
           const out = window.dash_clientside.callback_context.outputs_list;
-          const id = JSON.stringify({id: out.id.id, type: out.id.type});
-          const el = document.getElementById(id);
-          const cy = el && (el._cyreg ? el._cyreg.cy : (el.firstElementChild && el.firstElementChild._cyreg ? el.firstElementChild._cyreg.cy : null));
+          const cy = window.eaGraph && window.eaGraph.instance(out.id.id);
           if (cy) { cy.fit(undefined, 30); }
           return window.dash_clientside.no_update;
         }
@@ -596,5 +608,22 @@ def register(app: dash.Dash) -> None:
         Output({"type": CY, "id": MATCH}, "pan"),
         Input({"type": FIT, "id": MATCH}, "n_clicks"),
         State({"type": CY, "id": MATCH}, "layout"),
+        prevent_initial_call=True,
+    )
+
+    app.clientside_callback(
+        """
+        function(zoomOut, zoomIn, full) {
+          const trigger = window.dash_clientside.callback_context.triggered_id;
+          if (!trigger || !window.eaGraph) { return window.dash_clientside.no_update; }
+          if (trigger.type === 'gp-full') { window.eaGraph.fullscreen(trigger.id); }
+          else { window.eaGraph.zoom(trigger.id, trigger.type === 'gp-zoom-in' ? 1.3 : 1 / 1.3); }
+          return window.dash_clientside.no_update;
+        }
+        """,
+        Output({"type": CY, "id": MATCH}, "zoom"),
+        Input({"type": ZOOM_OUT, "id": MATCH}, "n_clicks"),
+        Input({"type": ZOOM_IN, "id": MATCH}, "n_clicks"),
+        Input({"type": FULL, "id": MATCH}, "n_clicks"),
         prevent_initial_call=True,
     )

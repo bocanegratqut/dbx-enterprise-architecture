@@ -1,13 +1,63 @@
 .ag-theme-alpine { --ag-font-size: 13px; --ag-grid-size: 5px; }
 
-/* Generated architecture views: natural size for legibility, scrolled inside their box. */
+/* Generated architecture views: a fixed viewport the reader pans and zooms, so a wide
+   diagram is legible without the page growing around it. */
+.ea-mermaid-frame {
+  position: relative;
+}
+.ea-mermaid-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.16);
+}
 .ea-mermaid {
-  max-height: 75vh;
-  overflow: auto;
+  position: relative;
+  height: 70vh;
+  overflow: hidden;
   background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  cursor: grab;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+.ea-mermaid.is-panning {
+  cursor: grabbing;
+}
+.ea-mermaid.is-arranging g.node {
+  cursor: move;
+}
+.ea-mermaid-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
 }
 .ea-mermaid svg {
   max-width: none;
+  display: block;
+}
+.ea-mermaid-frame:fullscreen {
+  background: #fff;
+  padding: 8px;
+}
+.ea-mermaid-frame:fullscreen .ea-mermaid {
+  height: calc(100vh - 60px);
+}
+.ea-graph-frame:fullscreen {
+  background: #fff;
+  padding: 8px;
+}
+.ea-graph-frame:fullscreen .ea-graph-canvas {
+  height: calc(100vh - 90px) !important;
 }
 .ea-doc h1 { font-size: 1.6rem; margin-top: 0.2rem; }
 .ea-doc h2 { font-size: 1.2rem; margin-top: 1.2rem; }
@@ -38,6 +88,18 @@
 .ea-doc th { text-align: left; font-weight: 600; color: #495057; background: #f8f9fa; }
 .ea-doc th, .ea-doc td { border-bottom: 1px solid #e9ecef; padding: 5px 10px; vertical-align: top; }
 .ea-doc tr:hover td { background: #fbfcfd; }
+.ea-markdown { line-height: 1.5; }
+.ea-markdown .ea-mermaid { height: 360px; }
+.ea-markdown-editor { width: 100%; }
+.ea-markdown-toolbar { flex-wrap: wrap; }
+.ea-markdown-preview { background: #fff; }
+.ea-markdown-preview .ea-doc p:first-child { margin-top: 0; }
+.mantine-Modal-content:fullscreen { background: #fff; padding: 1rem; overflow: auto; }
+.ea-md-body { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
+.ea-markdown-header { flex-wrap: wrap; row-gap: 4px; }
+.ea-markdown-editor.mode-split .ea-md-body { grid-template-columns: 1fr 1fr; }
+.ea-markdown-editor.mode-edit .ea-md-preview-pane { display: none; }
+.ea-markdown-editor.mode-preview .ea-md-edit-pane { display: none; }
 .ea-table td, .ea-table th { font-size: 0.88rem; }
 .ea-chip { cursor: pointer; }
 .ea-chip:hover { border-color: #4c6ef5; color: #3b5bdb; }
@@ -47,13 +109,58 @@
 .ea-clipboard svg { vertical-align: middle; }
 
 /* ---- shell ---- */
+/* Grey theme: a grey canvas, tinted chrome, white cards so diagrams and pack colours stay on white. */
+body { background: #e9ecef; }
+.mantine-AppShell-main { background: #e9ecef; }
+.mantine-AppShell-header, .mantine-AppShell-navbar { background: #f1f3f5; }
 .ea-brand { display: flex; align-items: center; gap: 10px; }
 .ea-brand-mark {
   width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg, #4c6ef5, #15aabf);
   display: flex; align-items: center; justify-content: center; color: #fff;
 }
+.ea-header-inner { flex-wrap: nowrap; min-height: 56px; }
+.ea-header-controls { min-width: 0; }
 .mantine-NavLink-root { border-radius: 8px; }
 .mantine-NavLink-root[data-active] { background: #edf2ff; color: #3b5bdb; font-weight: 600; }
+
+@media (min-width: 48em) and (max-width: 87.99em) {
+  .ea-header-inner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 132px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .ea-brand { flex: 1 1 100%; min-width: 0; }
+  .ea-header-controls {
+    flex: 1 1 100%;
+    align-items: center;
+  }
+  .ea-header-controls > * { max-width: 100%; }
+  .ea-header-controls .mantine-Select-root { flex: 1 1 180px; }
+}
+
+@media (max-width: 47.99em) {
+  .ea-header-inner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 204px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .ea-brand { flex: 1 1 100%; min-width: 0; }
+  .ea-brand .mantine-Stack-root { min-width: 0; }
+  .ea-brand .mantine-Title-root,
+  .ea-brand .mantine-Text-root { overflow-wrap: anywhere; }
+  .ea-header-controls {
+    flex: 1 1 100%;
+    align-items: center;
+  }
+  .ea-header-controls > * { max-width: 100%; }
+  .ea-header-controls .mantine-Select-root { flex: 1 1 150px; }
+}
 
 /* Branches: the merge log */
 .ag-theme-alpine .ea-added { color: #2b8a3e; font-weight: 600; }

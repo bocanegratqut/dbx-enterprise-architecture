@@ -10,7 +10,7 @@ from urllib.parse import unquote
 import dash
 import dash_cytoscape as cyto
 import dash_mantine_components as dmc
-from dash import MATCH, Input, Output, State, no_update
+from dash import MATCH, Input, Output, State, ctx, no_update
 from flask import session
 
 from ea.backend.branching import MAIN, set_branch
@@ -18,7 +18,7 @@ from ea.config import ROOT
 from ea.models import ConflictError, Forbidden, NotFoundError
 from ea.services.roles import set_role
 from ea.ui import graph, ids, layout
-from ea.ui.components import alert
+from ea.ui.components import alert, register_markdown
 from ea.ui.context import PERSONAS, get_context
 from ea.ui.pages import (
     ask,
@@ -105,6 +105,19 @@ def create_app() -> dash.Dash:
         )
 
     app.layout = _shell  # a function: the header reflects the session's branch on every page load
+
+    @app.callback(
+        Output(ids.NAVBAR_OPEN, "data"),
+        Output(ids.NAV_BURGER, "opened"),
+        Output(ids.APP_SHELL, "navbar"),
+        Input(ids.NAV_BURGER, "n_clicks"),
+        Input(ids.URL, "pathname"),
+        State(ids.NAVBAR_OPEN, "data"),
+        prevent_initial_call=True,
+    )
+    def toggle_mobile_nav(_clicks, _pathname, opened):
+        next_open = not bool(opened) if ctx.triggered_id == ids.NAV_BURGER else False
+        return next_open, next_open, {"width": 220, "breakpoint": "sm", "collapsed": {"mobile": not next_open}}
 
     @app.callback(
         Output(ids.PAGE, "children"),
@@ -233,7 +246,29 @@ def create_app() -> dash.Dash:
         Input({"type": ids.MERMAID_RESET, "id": MATCH}, "n_clicks"),
     )
 
+    app.clientside_callback(
+        """
+        function(zoomOut, zoomIn, fit, full) {
+            const trigger = dash_clientside.callback_context.triggered_id;
+            if (!trigger || !window.eaViews) { return window.dash_clientside.no_update; }
+            const target = JSON.stringify({id: trigger.id, type: 'mermaid-svg'});
+            if (trigger.type === 'mermaid-zoom-out') { window.eaViews.zoom(target, 1 / 1.3); }
+            else if (trigger.type === 'mermaid-zoom-in') { window.eaViews.zoom(target, 1.3); }
+            else if (trigger.type === 'mermaid-fit') { window.eaViews.fit(target); }
+            else if (trigger.type === 'mermaid-full') { window.eaViews.fullscreen(target); }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output({"type": ids.MERMAID_VIEW, "id": MATCH}, "data"),
+        Input({"type": ids.MERMAID_ZOOM_OUT, "id": MATCH}, "n_clicks"),
+        Input({"type": ids.MERMAID_ZOOM_IN, "id": MATCH}, "n_clicks"),
+        Input({"type": ids.MERMAID_FIT, "id": MATCH}, "n_clicks"),
+        Input({"type": ids.MERMAID_FULL, "id": MATCH}, "n_clicks"),
+        prevent_initial_call=True,
+    )
+
     graph.register(app)
+    register_markdown(app)
     for module in (browse, element, metamodel, impact, import_page, ask, branches, target, propose, health):
         module.register(app)
     return app
