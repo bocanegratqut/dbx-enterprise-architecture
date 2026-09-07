@@ -363,7 +363,7 @@ def render(ctx: AppContext) -> html.Div:
                                 "mm",
                                 reg,
                                 gp.raw_from_types(reg),
-                                height="600px",
+                                height="70vh",
                                 group_by="domain",
                                 extra_controls=[
                                     dmc.Select(

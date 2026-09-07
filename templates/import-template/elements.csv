@@ -1,0 +1,3 @@
+id,type,name,key,description,status,lifecycle_status,links,current_state,target_state,target_work_package,target_note,source_ref,origin
+EX-LDC-CURR,logical_data_component,Curriculum,DT001,The logical data area for curriculum structures and offerings.,approved,Live,https://example.edu/data/curriculum,live,keep,,,source-system:curriculum,import-template
+EX-DE-COURSE,data_entity,Course,DE001,A course record mastered by the source system and loaded into the architecture graph.,approved,Live,,live,keep,,,source-system:course,import-template

@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from functools import cache
 from pathlib import Path
 from typing import Any
 
 import dash_mantine_components as dmc
-from dash import dcc, html
+from dash import ALL, MATCH, Input, Output, State, dcc, html, no_update
+from dash import ctx as dash_ctx
 
 from ea.metamodel.registry import Registry
 from ea.models import Element, Issue
+from ea.ui import ids
 
 # Colours come from the pack (a domain's `notation.colour` and `notation.hex`); these are the fallbacks.
 FALLBACK_COLOUR, FALLBACK_HEX = "gray", "#adb5bd"
@@ -105,8 +108,172 @@ def element_anchor(e: Element | dict[str, Any]) -> dmc.Anchor:
     return dmc.Anchor(name, href=element_href(eid), size="sm", fw=500)
 
 
-def markdown(text: str) -> dcc.Markdown:
-    return dcc.Markdown(text or "_No description._", link_target="_blank", style={"lineHeight": 1.5})
+MERMAID_FENCE = re.compile(r"```mermaid\s*\n(.*?)```", re.IGNORECASE | re.DOTALL)
+MARKDOWN_SNIPPETS = {
+    "heading": "## Heading",
+    "bold": "**bold text**",
+    "table": "| Column | Value |\n| ------ | ----- |\n| Example | Replace me |",
+    "mermaid": "```mermaid\nflowchart LR\n  a[Start] --> b[Next]\n```",
+}
+
+
+def markdown(text: str, block_id: str = "markdown") -> html.Div:
+    source = text or "_No description._"
+    parts: list[Any] = []
+    start = 0
+    for i, match in enumerate(MERMAID_FENCE.finditer(source)):
+        before = source[start : match.start()].strip()
+        if before:
+            parts.append(dcc.Markdown(before, link_target="_blank", className="ea-doc"))
+        code = match.group(1).strip()
+        if code:
+            parts.append(mermaid_block(f"{block_id}-mermaid-{i}", code, arrangeable=False))
+        start = match.end()
+    after = source[start:].strip()
+    if after:
+        parts.append(dcc.Markdown(after, link_target="_blank", className="ea-doc"))
+    if not parts:
+        parts.append(dcc.Markdown("_No description._", link_target="_blank", className="ea-doc"))
+    return html.Div(parts, className="ea-markdown")
+
+
+def markdown_editor(
+    editor_id: str,
+    label: str,
+    value: str = "",
+    placeholder: str = "",
+    min_rows: int = 6,
+) -> html.Div:
+    buttons = [("heading", "Heading"), ("bold", "Bold"), ("table", "Table"), ("mermaid", "Mermaid")]
+    return html.Div(
+        [
+            dmc.Group(
+                [
+                    dmc.Text(label, size="sm", fw=500),
+                    dmc.Group(
+                        [
+                            dmc.Button(
+                                label_text,
+                                id={"type": ids.MD_INSERT, "id": editor_id, "kind": kind},
+                                variant="light",
+                                color="gray",
+                                size="compact-xs",
+                            )
+                            for kind, label_text in buttons
+                        ]
+                        + [
+                            dmc.SegmentedControl(
+                                id={"type": ids.MD_MODE, "id": editor_id},
+                                data=[
+                                    {"value": "edit", "label": "Edit"},
+                                    {"value": "split", "label": "Split"},
+                                    {"value": "preview", "label": "Preview"},
+                                ],
+                                value="edit",
+                                size="xs",
+                            ),
+                        ],
+                        gap=6,
+                        className="ea-markdown-toolbar",
+                    ),
+                ],
+                justify="space-between",
+                align="center",
+                mb=4,
+                className="ea-markdown-header",
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        dmc.Textarea(
+                            id={"type": ids.MD_TEXT, "id": editor_id},
+                            value=value,
+                            placeholder=placeholder,
+                            resize="vertical",
+                            styles={"input": {"minHeight": f"{min_rows * 24}px"}},
+                        ),
+                        className="ea-md-edit-pane",
+                    ),
+                    html.Div(
+                        dmc.Paper(
+                            [
+                                dmc.Text("Preview", size="xs", fw=700, c="dimmed", mb=4),
+                                html.Div(
+                                    markdown(value, f"md-preview-{editor_id}"),
+                                    id={"type": ids.MD_PREVIEW, "id": editor_id},
+                                ),
+                            ],
+                            p="sm",
+                            withBorder=True,
+                            className="ea-markdown-preview",
+                        ),
+                        className="ea-md-preview-pane",
+                    ),
+                ],
+                className="ea-md-body",
+            ),
+        ],
+        id={"type": ids.MD_WRAP, "id": editor_id},
+        className="ea-markdown-editor mode-edit",
+    )
+
+
+def modal_title(title: str, modal_key: str) -> dmc.Group:
+    """A modal title with a full-screen toggle, so a small window can take the whole screen."""
+    return dmc.Group(
+        [
+            dmc.Text(title, fw=600),
+            dmc.Tooltip(
+                dmc.ActionIcon(
+                    icon("tabler:maximize", 14),
+                    variant="subtle",
+                    color="gray",
+                    size="sm",
+                    className="ea-modal-full",
+                    id=f"{modal_key}-full",
+                ),
+                label="Full screen (Escape leaves it)",
+            ),
+        ],
+        gap="xs",
+    )
+
+
+def register_markdown(app) -> None:
+    @app.callback(
+        Output({"type": ids.MD_TEXT, "id": MATCH}, "value"),
+        Input({"type": ids.MD_INSERT, "id": MATCH, "kind": ALL}, "n_clicks"),
+        State({"type": ids.MD_TEXT, "id": MATCH}, "value"),
+        prevent_initial_call=True,
+    )
+    def insert_markdown(_clicks, value):
+        triggered = dash_ctx.triggered_id
+        if not triggered:
+            return no_update
+        snippet = MARKDOWN_SNIPPETS.get(triggered.get("kind"))
+        if not snippet:
+            return no_update
+        current = value or ""
+        separator = "" if not current else ("\n" if current.endswith("\n") else "\n\n")
+        return f"{current}{separator}{snippet}"
+
+    @app.callback(
+        Output({"type": ids.MD_WRAP, "id": MATCH}, "className"),
+        Input({"type": ids.MD_MODE, "id": MATCH}, "value"),
+        prevent_initial_call=True,
+    )
+    def switch_markdown_mode(mode):
+        mode = mode if mode in ("edit", "split", "preview") else "edit"
+        return f"ea-markdown-editor mode-{mode}"
+
+    @app.callback(
+        Output({"type": ids.MD_PREVIEW, "id": MATCH}, "children"),
+        Input({"type": ids.MD_TEXT, "id": MATCH}, "value"),
+    )
+    def preview_markdown(value):
+        output_id = dash_ctx.outputs_list.get("id", {})
+        editor_id = output_id.get("id", "markdown") if isinstance(output_id, dict) else "markdown"
+        return markdown(value or "", f"md-preview-{editor_id}")
 
 
 def kv_table(rows: list[tuple[str, Any]]) -> dmc.Table:
@@ -200,12 +367,32 @@ def empty(text: str) -> html.Div:
     return html.Div(dmc.Text(text, c="dimmed", size="sm"), style={"padding": "1rem 0"})
 
 
+def keep_selected_option(
+    options: list[dict[str, str]], value: str | None, previous: list[dict[str, str]] | None
+) -> list[dict[str, str]]:
+    """A Select shows nothing when its value has no option, so carry the selected one over."""
+    if not value or any(o["value"] == value for o in options):
+        return options
+    selected = next((o for o in (previous or []) if o["value"] == value), None)
+    return [selected, *options] if selected else options
+
+
 def mermaid_block(block_id: str, code: str, arrangeable: bool = True) -> html.Div:
-    """A generated diagram: the Mermaid source (hidden), the rendered SVG, and, when arrangeable,
-    a store of the shape positions that the draw.io export honours and a button to reset them."""
+    """A generated diagram: the Mermaid source (hidden), the rendered SVG in a pan-and-zoom viewport,
+    and, when arrangeable, a store of the shape positions that the draw.io export honours."""
     children: list[Any] = [
         html.Pre(code, id={"type": "mermaid-src", "id": block_id}, hidden=True),
         dcc.Store(id={"type": "mermaid-pos", "id": block_id}, data=None),
+        dcc.Store(id={"type": "mermaid-view", "id": block_id}, data=None),
+        html.Div(
+            [
+                _view_control("mermaid-zoom-out", block_id, "tabler:minus", "Zoom out"),
+                _view_control("mermaid-zoom-in", block_id, "tabler:plus", "Zoom in"),
+                _view_control("mermaid-fit", block_id, "tabler:arrows-maximize", "Fit to the window"),
+                _view_control("mermaid-full", block_id, "tabler:maximize", "Full screen (Escape leaves it)"),
+            ],
+            className="ea-mermaid-controls",
+        ),
         html.Div(id={"type": "mermaid-svg", "id": block_id}, className="ea-mermaid"),
     ]
     if arrangeable:
@@ -213,7 +400,7 @@ def mermaid_block(block_id: str, code: str, arrangeable: bool = True) -> html.Di
             dmc.Group(
                 [
                     dmc.Text(
-                        "Drag a shape to arrange the view; the draw.io export follows. Nothing is saved.",
+                        "Drag to pan, scroll to zoom, Ctrl-drag (Command on a Mac) to move a shape. Nothing is saved.",
                         size="xs",
                         c="dimmed",
                     ),
@@ -230,7 +417,27 @@ def mermaid_block(block_id: str, code: str, arrangeable: bool = True) -> html.Di
                 mt=4,
             )
         )
-    return html.Div(children)
+    else:
+        # The render callback declares this control as an Input; keep it in the tree, invisible.
+        children.append(
+            html.Div(
+                dmc.Button("Reset layout", id={"type": "mermaid-reset", "id": block_id}),
+                style={"display": "none"},
+            )
+        )
+    return html.Div(children, className="ea-mermaid-frame")
+
+
+def _view_control(kind: str, block_id: str, icon_name: str, label: str) -> dmc.Tooltip:
+    return dmc.Tooltip(
+        dmc.ActionIcon(
+            icon(icon_name, 14),
+            id={"type": kind, "id": block_id},
+            variant="default",
+            size="sm",
+        ),
+        label=label,
+    )
 
 
 def view_toolbar(

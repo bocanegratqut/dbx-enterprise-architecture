@@ -14,6 +14,7 @@ from ea.ui.components import (
     alert,
     element_anchor,
     icon,
+    markdown,
     mermaid_block,
     page_title,
     status_badge,
@@ -186,7 +187,7 @@ def document_card(ctx: AppContext, doc: AnswerDocument) -> dmc.Paper:
             mb="sm",
         ),
         *views,
-        _section("Answer", dcc.Markdown(doc.answer, link_target="_blank", className="ea-doc")),
+        _section("Answer", markdown(doc.answer, "ask-answer-md")),
         alert(
             "These identifiers appear in the answer but no tool returned them; treat them as unverified: "
             + ", ".join(doc.ungrounded_ids),

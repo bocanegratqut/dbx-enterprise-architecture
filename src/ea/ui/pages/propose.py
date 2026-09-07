@@ -16,10 +16,11 @@ from ea.backend.branching import MAIN
 from ea.config import ROOT
 from ea.models import CURRENT_STATES, TARGET_STATES, ConflictError, Forbidden, NotFoundError, ValidationError
 from ea.ui import ids
-from ea.ui.components import alert, icon, page_title
+from ea.ui.components import alert, icon, markdown_editor, page_title
 from ea.ui.context import AppContext, get_context
 
 TEMPLATE_PATH = ROOT / "templates" / "proposal-template.md"
+NEW_OPTION = "__new__"
 
 _GRID = dict(
     className="ag-theme-alpine",
@@ -340,6 +341,8 @@ def render(ctx: AppContext) -> html.Div:
     )
     wps = ctx.work_package_options()
     open_branches = [{"value": b.branch_id, "label": f"{b.name} ({b.changes})"} for b in ctx.branches.open()]
+    branch_options = open_branches + [{"value": NEW_OPTION, "label": "➕ New branch…"}]
+    wp_options = wps + [{"value": NEW_OPTION, "label": "➕ New work package…"}]
     return html.Div(
         [
             page_title(
@@ -352,13 +355,69 @@ def render(ctx: AppContext) -> html.Div:
                     dmc.Paper(
                         dmc.Stack(
                             [
-                                dmc.Textarea(
-                                    id=ids.PR_TEXT,
-                                    label="Paste the proposal",
+                                dmc.Text("1 · Where it lands", fw=700, size="sm"),
+                                dmc.Select(
+                                    id=ids.PR_BRANCH,
+                                    label="Branch",
+                                    description="An open branch to write to; New creates one from main, named after the proposal when no name is given.",
+                                    data=branch_options,
+                                    value=ctx.branch() if ctx.branch() != MAIN else None,
+                                    searchable=True,
+                                    clearable=True,
+                                    placeholder="New branch (created from main)",
+                                    comboboxProps={"withinPortal": True},
+                                ),
+                                dmc.TextInput(
+                                    id=ids.PR_BRANCH_NEW,
+                                    label="New branch name",
+                                    placeholder="Named after the proposal when left empty",
+                                    style={"display": "none"},
+                                ),
+                                dmc.Select(
+                                    id=ids.PR_WP,
+                                    label="Work package",
+                                    description="The initiative the change belongs to; the document's own says wins when it names one.",
+                                    data=wp_options,
+                                    searchable=True,
+                                    clearable=True,
+                                    placeholder="Existing work package…",
+                                    comboboxProps={"withinPortal": True},
+                                ),
+                                dmc.TextInput(
+                                    id=ids.PR_WP_NEW,
+                                    label="New work package name",
+                                    placeholder="Name of a new initiative",
+                                    style={"display": "none"},
+                                ),
+                                dmc.Divider(),
+                                dmc.Button(
+                                    "Download Proposal Template",
+                                    id=ids.PR_TEMPLATE,
+                                    variant="light",
+                                    leftSection=icon("tabler:download"),
+                                ),
+                                dmc.Text(
+                                    "Start from the template: its tables work without a model key.",
+                                    size="xs",
+                                    c="dimmed",
+                                ),
+                            ],
+                            gap="sm",
+                        ),
+                        p="md",
+                        withBorder=True,
+                        className="ea-card",
+                    ),
+                    dmc.Paper(
+                        dmc.Stack(
+                            [
+                                dmc.Text("2 · The proposal", fw=700, size="sm"),
+                                markdown_editor(
+                                    ids.PR_TEXT,
+                                    "Paste the proposal",
                                     placeholder="Paste the design page here (Markdown with the template's tables works without a model key; free text needs the hosted reader)…",
-                                    autosize=True,
-                                    minRows=8,
-                                    maxRows=24,
+                                    min_rows=8,
+
                                 ),
                                 dcc.Upload(
                                     id=ids.PR_UPLOAD,
@@ -390,65 +449,19 @@ def render(ctx: AppContext) -> html.Div:
                                     autosize=True,
                                     minRows=1,
                                 ),
-                            ],
-                            gap="sm",
-                        ),
-                        p="md",
-                        withBorder=True,
-                        className="ea-card",
-                    ),
-                    dmc.Paper(
-                        dmc.Stack(
-                            [
-                                dmc.Select(
-                                    id=ids.PR_BRANCH,
-                                    label="Branch",
-                                    description="An open branch to write to; leave empty to create one from main.",
-                                    data=open_branches,
-                                    value=ctx.branch() if ctx.branch() != MAIN else None,
-                                    searchable=True,
-                                    clearable=True,
-                                    placeholder="Open branch…",
-                                    comboboxProps={"withinPortal": True},
-                                ),
-                                dmc.TextInput(
-                                    id=ids.PR_BRANCH_NEW,
-                                    label="…or a new branch",
-                                    placeholder="Named after the proposal when left empty",
-                                ),
-                                dmc.Select(
-                                    id=ids.PR_WP,
-                                    label="Work package",
-                                    description="The initiative the change belongs to; the document's own says wins when it names one.",
-                                    data=wps,
-                                    searchable=True,
-                                    clearable=True,
-                                    placeholder="Existing work package…",
-                                    comboboxProps={"withinPortal": True},
-                                ),
-                                dmc.TextInput(
-                                    id=ids.PR_WP_NEW,
-                                    label="…or a new work package",
-                                    placeholder="Name of a new initiative",
-                                ),
                                 dmc.Group(
                                     [
+                                        dmc.Text(
+                                            "No document yet? Analyse with nothing pasted and add the rows by hand.",
+                                            size="xs",
+                                            c="dimmed",
+                                        ),
                                         dmc.Button(
                                             "Analyse", id=ids.PR_ANALYSE, leftSection=icon("tabler:send")
                                         ),
-                                        dmc.Button(
-                                            "Download Proposal Template",
-                                            id=ids.PR_TEMPLATE,
-                                            variant="light",
-                                            leftSection=icon("tabler:download"),
-                                        ),
                                     ],
-                                    gap="sm",
-                                ),
-                                dmc.Text(
-                                    "No document yet? Analyse with nothing pasted and add the rows by hand: the same review and Apply work without a reader.",
-                                    size="xs",
-                                    c="dimmed",
+                                    justify="space-between",
+                                    align="center",
                                 ),
                             ],
                             gap="sm",
@@ -486,7 +499,29 @@ def _sources(text: str, files: dict[str, str], links_text: str) -> tuple[list[di
     return sources, problems
 
 
+def _wp_choice(wp: str | None, wp_new: str | None) -> str:
+    if wp == NEW_OPTION:
+        return (wp_new or "").strip()
+    return wp or ""
+
+
 def register(app: dash.Dash) -> None:
+    @app.callback(
+        Output(ids.PR_BRANCH_NEW, "style"),
+        Input(ids.PR_BRANCH, "value"),
+        prevent_initial_call=True,
+    )
+    def show_new_branch_name(branch):
+        return {} if branch == NEW_OPTION else {"display": "none"}
+
+    @app.callback(
+        Output(ids.PR_WP_NEW, "style"),
+        Input(ids.PR_WP, "value"),
+        prevent_initial_call=True,
+    )
+    def show_new_wp_name(wp):
+        return {} if wp == NEW_OPTION else {"display": "none"}
+
     @app.callback(
         Output(ids.PR_STORE, "data"),
         Output(ids.PR_FILES, "children"),
@@ -529,7 +564,7 @@ def register(app: dash.Dash) -> None:
         Output(ids.PR_RESULT, "children"),
         Output(ids.PR_RESULT_STORE, "data"),
         Input(ids.PR_ANALYSE, "n_clicks"),
-        State(ids.PR_TEXT, "value"),
+        State({"type": ids.MD_TEXT, "id": ids.PR_TEXT}, "value"),
         State(ids.PR_STORE, "data"),
         State(ids.PR_LINKS, "value"),
         State(ids.PR_WP, "value"),
@@ -547,7 +582,7 @@ def register(app: dash.Dash) -> None:
         else:
             result = ctx.proposals.resolve(ProposalResult(provider="manual"))
         if not result.work_package:
-            result.work_package = wp or (wp_new or "").strip()
+            result.work_package = _wp_choice(wp, wp_new)
             result = ctx.proposals.resolve(result)
         head = alert("Some links could not be read: " + "; ".join(problems), "red") if problems else None
         stored = {"title": result.title, "summary": result.summary, "work_package": result.work_package}
@@ -650,7 +685,7 @@ def register(app: dash.Dash) -> None:
     ):
         trig = dash_ctx.triggered_id
         ctx = get_context()
-        work_package = (stored or {}).get("work_package") or wp or (wp_new or "").strip()
+        work_package = (stored or {}).get("work_package") or _wp_choice(wp, wp_new)
         payload = _payload_from_rows(
             el_v or el_rows, el_sel, rel_v or rel_rows, rel_sel, stored, work_package
         )
@@ -669,9 +704,10 @@ def register(app: dash.Dash) -> None:
             )
         new_name = (branch_new or "").strip()
         try:
-            if new_name:
+            if branch == NEW_OPTION or (not branch and new_name):
+                title = new_name or result.title or f"proposal {len(ctx.branches.list()) + 1}"
                 b = ctx.branches.create(
-                    new_name, ctx.actor, f"Proposal: {result.title or new_name}", result.work_package_id or ""
+                    title, ctx.actor, f"Proposal: {result.title or title}", result.work_package_id or ""
                 )
             elif branch:
                 b = ctx.branches.get(branch)

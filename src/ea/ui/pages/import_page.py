@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import fnmatch
 import io
+import zipfile
 from pathlib import Path
 
 import dash
@@ -23,6 +24,16 @@ MAPPINGS = {
     "": "No mapping (CSV contract)",
     "tool-export": "EA tool export, one CSV per type (connectors/tool-export/mapping.yaml)",
 }
+TEMPLATE_DIR = ROOT / "templates" / "import-template"
+TEMPLATE_FILES = ("README.md", "elements.csv", "relationships.csv", "links.csv")
+
+
+def import_template_archive() -> bytes:
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name in TEMPLATE_FILES:
+            archive.write(TEMPLATE_DIR / name, arcname=name)
+    return out.getvalue()
 
 
 def render(ctx: AppContext) -> html.Div:
@@ -86,6 +97,12 @@ def render(ctx: AppContext) -> html.Div:
                                 dmc.Group(
                                     [
                                         dmc.Button(
+                                            "Download template",
+                                            id=ids.IM_TEMPLATE,
+                                            variant="light",
+                                            leftSection=icon("tabler:download"),
+                                        ),
+                                        dmc.Button(
                                             "Validate only",
                                             id=ids.IM_VALIDATE,
                                             variant="light",
@@ -103,7 +120,7 @@ def render(ctx: AppContext) -> html.Div:
                                     ]
                                 ),
                                 dmc.Text(
-                                    "Or from the command line: `uv run ea import <dir> --source ea-tool --mapping connectors/tool-export/mapping.yaml`.",
+                                    "The template ZIP follows the no-mapping CSV contract in connectors/README.md. Or from the command line: `uv run ea import <dir> --source ea-tool --mapping connectors/tool-export/mapping.yaml`.",
                                     size="xs",
                                     c="dimmed",
                                 ),
@@ -185,6 +202,16 @@ def _run(store, source, mapping_key, dry_run: bool):
 
 
 def register(app: dash.Dash) -> None:
+    @app.callback(
+        Output(ids.DOWNLOAD, "data", allow_duplicate=True),
+        Input(ids.IM_TEMPLATE, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def template(n):
+        if not n:
+            return no_update
+        return dcc.send_bytes(import_template_archive(), "ea-import-template.zip", type="application/zip")
+
     @app.callback(
         Output(ids.IM_STORE, "data"),
         Output(ids.IM_FILES, "children"),

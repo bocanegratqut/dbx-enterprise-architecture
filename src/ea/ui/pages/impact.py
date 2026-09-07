@@ -15,6 +15,7 @@ from ea.ui.components import (
     alert,
     element_anchor,
     icon,
+    keep_selected_option,
     mermaid_block,
     page_title,
     simple_table,
@@ -27,14 +28,20 @@ from ea.views.drawio import to_drawio
 from ea.views.mermaid import to_markdown, to_mermaid
 
 
+def _option(ctx: AppContext, e) -> dict[str, str]:
+    t = ctx.registry.types.get(e.type_id)
+    return {"value": e.element_id, "label": f"{e.name} [{e.element_id}] \u00b7 {t.name if t else e.type_id}"}
+
+
 def render(ctx: AppContext, search: str | None = None) -> html.Div:
     preset = (parse_qs((search or "").lstrip("?")).get("element") or [None])[0]
-    data = []
+    data = [_option(ctx, e) for e in ctx.repo.search(limit=50)]
     result, elements, mermaid = None, gp.EMPTY, ""
     if preset:
         e = ctx.backend.get_element(preset)
         if e:
-            data = [{"value": e.element_id, "label": f"{e.name} [{e.element_id}]"}]
+            if not any(o["value"] == preset for o in data):
+                data = [_option(ctx, e), *data]
             result, elements, mermaid = _result(ctx, preset, 3)
     return html.Div(
         [
@@ -62,7 +69,7 @@ def render(ctx: AppContext, search: str | None = None) -> html.Div:
             ),
             html.Div(result, id=ids.IMP_RESULT),
             dmc.Paper(
-                gp.graph_panel("imp", ctx.registry, elements, height="560px", group_by="layer"),
+                gp.graph_panel("imp", ctx.registry, elements, height="70vh", group_by="layer"),
                 p="sm",
                 withBorder=True,
                 mt="md",
@@ -175,19 +182,22 @@ def _result(ctx: AppContext, element_id: str, depth: int):
 
 def register(app: dash.Dash) -> None:
     @app.callback(
-        Output(ids.IMP_ELEMENT, "data"), Input(ids.IMP_ELEMENT, "searchValue"), prevent_initial_call=True
+        Output(ids.IMP_ELEMENT, "data"),
+        Input(ids.IMP_ELEMENT, "searchValue"),
+        State(ids.IMP_ELEMENT, "value"),
+        State(ids.IMP_ELEMENT, "data"),
+        prevent_initial_call=True,
     )
-    def search(text):
+    def search(text, value, data):
         if not text or len(text) < 2:
             return no_update
         ctx = get_context()
-        return [
-            {
-                "value": e.element_id,
-                "label": f"{e.name} [{e.element_id}] · {ctx.registry.types[e.type_id].name if e.type_id in ctx.registry.types else e.type_id}",
-            }
-            for e in ctx.repo.search(text, limit=25)
-        ]
+        options = [_option(ctx, e) for e in ctx.repo.search(text, limit=25)]
+        # Picking an option makes the label the next search term, which matches nothing:
+        # keep the list as it is rather than dropping the option the value refers to.
+        if not options:
+            return no_update
+        return keep_selected_option(options, value, data)
 
     @app.callback(
         Output(ids.IMP_RESULT, "children"),
