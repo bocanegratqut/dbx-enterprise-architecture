@@ -1,0 +1,2 @@
+src_id,rel_type,dst_id,qualifier,current_state,target_state,target_work_package,target_note,status,source_ref
+EX-LDC-CURR,encapsulates,EX-DE-COURSE,,live,keep,,,approved,source-system:curriculum-course
